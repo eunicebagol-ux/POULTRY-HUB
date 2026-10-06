@@ -831,7 +831,16 @@ export interface Database {
           p_flock_id: string;
           p_quantity: number;
           p_event_date: string;
-          p_reason: string;
+          p_reason?: string | null;
+        };
+        Returns: string;
+      };
+      record_flock_culling: {
+        Args: {
+          p_flock_id: string;
+          p_quantity: number;
+          p_event_date: string;
+          p_reason?: string | null;
         };
         Returns: string;
       };

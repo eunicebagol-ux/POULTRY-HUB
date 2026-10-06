@@ -59,12 +59,12 @@ export const PACKAGING_LABELS: Record<PackagingType, string> = {
 
 // ─── Flock Status ─────────────────────────────────────────────────────────────
 
-export const FLOCK_STATUSES: FlockStatus[] = ["ACTIVE", "RETIRED", "SOLD"];
+export const FLOCK_STATUSES: FlockStatus[] = ["ACTIVE", "RETIRED", "QUARANTINED"];
 
 export const FLOCK_STATUS_LABELS: Record<FlockStatus, string> = {
   ACTIVE: "Active",
   RETIRED: "Retired",
-  SOLD: "Sold",
+  QUARANTINED: "Quarantined",
 };
 
 // ─── User Roles ───────────────────────────────────────────────────────────────

@@ -27,8 +27,8 @@ export type EggSize =
  */
 export type PackagingType = "PIECE" | "TRAY_30" | "CARTON_12" | "BOX_360";
 
-/** Flock operational lifecycle status */
-export type FlockStatus = "ACTIVE" | "RETIRED" | "SOLD";
+/** Flock operational lifecycle status — must match the PostgreSQL flock_status enum */
+export type FlockStatus = "ACTIVE" | "RETIRED" | "QUARANTINED";
 
 /** Egg sale order and payment status */
 export type SaleStatus = "PENDING" | "PAID" | "CANCELLED";
