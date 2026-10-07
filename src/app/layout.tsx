@@ -44,8 +44,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         >
           <ThemeProvider
             attribute="class"
-            defaultTheme="system"
-            enableSystem
+            defaultTheme="light"
             disableTransitionOnChange
           >
             {children}
