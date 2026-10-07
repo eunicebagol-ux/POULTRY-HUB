@@ -1,13 +1,10 @@
 import { Suspense } from "react";
-import { format } from "date-fns";
 import { getProductionReport } from "@/actions/reports";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertTriangle, Activity, Egg, Skull } from "lucide-react";
 import { getCurrentUserProfile } from "@/lib/user-profile";
 
 export default async function ProductionReportPage() {
-  const profile = await getCurrentUserProfile();
-  const isAdmin = profile?.role === "ADMIN";
 
   return (
     <div className="space-y-6">
@@ -36,7 +33,7 @@ async function ProductionContent() {
 
   const result = await getProductionReport(startDate, endDate);
 
-  if (!result.success || !result.data) {
+  if (!result.success) {
     return (
       <Card className="border-destructive">
         <CardContent className="pt-6 text-center text-destructive">
@@ -47,6 +44,8 @@ async function ProductionContent() {
       </Card>
     );
   }
+
+  if (!result.data) return null;
 
   const { data } = result;
 

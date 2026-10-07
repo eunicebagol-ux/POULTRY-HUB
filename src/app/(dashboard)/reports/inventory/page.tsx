@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { getInventoryReport } from "@/actions/reports";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, Egg, Package, DollarSign } from "lucide-react";
+import { AlertTriangle, Egg, Package } from "lucide-react";
 
 export default async function InventoryReportPage() {
   return (
@@ -23,7 +23,7 @@ export default async function InventoryReportPage() {
 async function InventoryContent() {
   const result = await getInventoryReport();
 
-  if (!result.success || !result.data) {
+  if (!result.success) {
     return (
       <Card className="border-destructive">
         <CardContent className="pt-6 text-center text-destructive">
@@ -34,6 +34,8 @@ async function InventoryContent() {
       </Card>
     );
   }
+
+  if (!result.data) return null;
 
   const { data } = result;
 

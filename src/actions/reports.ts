@@ -258,8 +258,8 @@ export async function getProductionReport(
   });
   summary.totalCulling = filteredCull.reduce((s, c) => s + c.quantity, 0);
 
-  const trendMap = new Map<string, any>();
-  const flockMap = new Map<string, any>();
+  const trendMap = new Map<string, { date: string; totalEggs: number; goodEggs: number; _damaged: number; _birds: number; }>();
+  const flockMap = new Map<string, { flockIdentifier: string; totalEggs: number; damageRate: number; mortality: number; _damaged: number; }>();
 
   for (const f of flocks) {
     flockMap.set(f.id, {

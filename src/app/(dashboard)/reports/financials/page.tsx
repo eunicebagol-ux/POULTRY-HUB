@@ -45,7 +45,7 @@ async function FinancialContent() {
 
   const result = await getFinancialReport(startDate, endDate);
 
-  if (!result.success || !result.data) {
+  if (!result.success) {
     return (
       <Card className="border-destructive">
         <CardContent className="pt-6 text-center text-destructive">
@@ -56,6 +56,8 @@ async function FinancialContent() {
       </Card>
     );
   }
+
+  if (!result.data) return null;
 
   const { data } = result;
 

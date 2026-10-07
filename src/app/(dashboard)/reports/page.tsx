@@ -4,7 +4,7 @@ import { format } from "date-fns";
 import { getOverviewReport } from "@/actions/reports";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+
 import {
   BarChart3,
   TrendingUp,
@@ -71,7 +71,7 @@ export default async function ReportsPage() {
   );
 }
 
-function ReportCard({ title, description, href, icon: Icon, color }: any) {
+function ReportCard({ title, description, href, icon: Icon, color }: { title: string, description: string, href: string, icon: any, color: string }) {
   return (
     <Card className="hover:shadow-md transition-all group overflow-hidden relative">
       <div className={`absolute right-[-20px] top-[-20px] opacity-10 group-hover:scale-150 transition-transform duration-500 ease-in-out`}>
@@ -83,12 +83,10 @@ function ReportCard({ title, description, href, icon: Icon, color }: any) {
         <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
-        <Button asChild variant="ghost" className="w-full justify-between mt-2 group-hover:bg-primary/5">
-          <Link href={href}>
+        <Link href={href} className="flex items-center w-full justify-between mt-2 text-sm font-medium hover:bg-primary/5 p-2 rounded-md transition-colors group/link">
             View Report
-            <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
-          </Link>
-        </Button>
+            <ArrowRight className="w-4 h-4 ml-2 group-hover/link:translate-x-1 transition-transform" />
+        </Link>
       </CardContent>
     </Card>
   );
@@ -105,7 +103,7 @@ async function DashboardContent({ isAdmin }: { isAdmin: boolean }) {
 
   const result = await getOverviewReport(startDate, endDate);
 
-  if (!result.success || !result.data) {
+  if (!result.success) {
     return (
       <Card className="border-destructive">
         <CardContent className="pt-6 text-center text-destructive">
@@ -116,6 +114,8 @@ async function DashboardContent({ isAdmin }: { isAdmin: boolean }) {
       </Card>
     );
   }
+
+  if (!result.data) return null;
 
   const { data } = result;
 
@@ -183,7 +183,7 @@ async function DashboardContent({ isAdmin }: { isAdmin: boolean }) {
   );
 }
 
-function KpiCard({ title, value, icon: Icon, description, valueColor = "" }: any) {
+function KpiCard({ title, value, icon: Icon, description, valueColor = "" }: { title: string, value: string | number, icon: any, description?: string, valueColor?: string }) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -207,16 +207,16 @@ function KpiCard({ title, value, icon: Icon, description, valueColor = "" }: any
 function DashboardSkeleton({ isAdmin }: { isAdmin: boolean }) {
   return (
     <div className="space-y-6">
-      <Skeleton className="h-10 w-64" />
+      <div className="h-10 w-64 bg-muted animate-pulse rounded-md" />
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {[...Array(4)].map((_, i) => (
           <Card key={i}>
             <CardHeader className="pb-2">
-              <Skeleton className="h-4 w-1/2" />
+              <div className="h-4 w-1/2 bg-muted animate-pulse rounded-md" />
             </CardHeader>
             <CardContent>
-              <Skeleton className="h-8 w-3/4 mb-2" />
-              <Skeleton className="h-3 w-1/3" />
+              <div className="h-8 w-3/4 mb-2 bg-muted animate-pulse rounded-md" />
+              <div className="h-3 w-1/3 bg-muted animate-pulse rounded-md" />
             </CardContent>
           </Card>
         ))}
@@ -226,10 +226,10 @@ function DashboardSkeleton({ isAdmin }: { isAdmin: boolean }) {
           {[...Array(3)].map((_, i) => (
             <Card key={`fin-${i}`}>
               <CardHeader className="pb-2">
-                <Skeleton className="h-4 w-1/2" />
+                <div className="h-4 w-1/2 bg-muted animate-pulse rounded-md" />
               </CardHeader>
               <CardContent>
-                <Skeleton className="h-8 w-3/4 mb-2" />
+                <div className="h-8 w-3/4 mb-2 bg-muted animate-pulse rounded-md" />
               </CardContent>
             </Card>
           ))}

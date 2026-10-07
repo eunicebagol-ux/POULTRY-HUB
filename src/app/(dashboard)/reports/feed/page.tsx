@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { getFeedReport } from "@/actions/reports";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertTriangle, Package, Scale, TrendingDown } from "lucide-react";
-import { getCurrentUserProfile } from "@/lib/user-profile";
+
 
 export default async function FeedReportPage() {
   return (
@@ -32,7 +32,7 @@ async function FeedContent() {
 
   const result = await getFeedReport(startDate, endDate);
 
-  if (!result.success || !result.data) {
+  if (!result.success) {
     return (
       <Card className="border-destructive">
         <CardContent className="pt-6 text-center text-destructive">
@@ -43,6 +43,8 @@ async function FeedContent() {
       </Card>
     );
   }
+
+  if (!result.data) return null;
 
   const { data } = result;
 
