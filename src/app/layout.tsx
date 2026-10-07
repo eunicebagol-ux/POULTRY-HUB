@@ -38,10 +38,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           appearance={{
             variables: {
               colorBackground: "var(--card)",
-              colorText: "var(--foreground)",
               colorPrimary: "var(--primary)",
-              colorInputBackground: "var(--input)",
-              colorInputText: "var(--foreground)",
             },
           }}
         >
