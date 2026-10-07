@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { getActionLabel, getModuleLabel } from "./activity-log-utils";
-import { X, ChevronLeft, ChevronRight, Filter } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Filter, Search } from "lucide-react";
 
 interface FilterOption {
   id: string;
@@ -22,6 +22,7 @@ interface ActivityLogFiltersProps {
   currentActorId: string;
   currentDateFrom: string;
   currentDateTo: string;
+  currentSearch?: string;
 }
 
 export function ActivityLogFilters({
@@ -33,6 +34,7 @@ export function ActivityLogFilters({
   currentActorId,
   currentDateFrom,
   currentDateTo,
+  currentSearch = "",
 }: ActivityLogFiltersProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -69,13 +71,31 @@ export function ActivityLogFilters({
   };
 
   const hasFilters =
-    currentAction || currentEntityTable || currentActorId || currentDateFrom || currentDateTo;
+    currentAction || currentEntityTable || currentActorId || currentDateFrom || currentDateTo || currentSearch;
 
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 flex-wrap">
         <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
         <span className="text-sm font-medium text-muted-foreground">Filters:</span>
+
+        {/* Search Input */}
+        <div className="relative">
+          <Search className="absolute left-2.5 top-2 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Search action, module..."
+            className="h-8 w-[190px] pl-8 text-xs"
+            defaultValue={currentSearch}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                applyFilter("search", e.currentTarget.value);
+              }
+            }}
+            onBlur={(e) => applyFilter("search", e.target.value)}
+            disabled={isPending}
+          />
+        </div>
 
         {/* Action filter */}
         <Select

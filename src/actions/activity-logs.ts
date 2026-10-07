@@ -34,6 +34,7 @@ export interface ActivityLogsFilters {
   actorId?: string;
   dateFrom?: string;
   dateTo?: string;
+  search?: string;
 }
 
 const PAGE_SIZE = 25;
@@ -61,8 +62,7 @@ export async function getActivityLogs(
     .select("id, actor_id, action, entity_table, entity_id, metadata, created_at", {
       count: "exact",
     })
-    .order("created_at", { ascending: false })
-    .range(from, to);
+    .order("created_at", { ascending: false });
 
   if (filters.action && filters.action !== "ALL") {
     query = query.eq("action", filters.action);
@@ -82,6 +82,28 @@ export async function getActivityLogs(
     endDate.setDate(endDate.getDate() + 1);
     query = query.lt("created_at", endDate.toISOString().split("T")[0]);
   }
+  if (filters.search) {
+    const term = filters.search.trim();
+    if (term) {
+      // Find matching profile ids for actor name search
+      const { data: matchedProfiles } = await supabase
+        .from("profiles")
+        .select("id")
+        .ilike("full_name", `%${term}%`);
+
+      const matchedActorIds = (matchedProfiles ?? []).map((p) => p.id);
+
+      if (matchedActorIds.length > 0) {
+        query = query.or(
+          `action.ilike.%${term}%,entity_table.ilike.%${term}%,actor_id.in.(${matchedActorIds.join(",")})`
+        );
+      } else {
+        query = query.or(`action.ilike.%${term}%,entity_table.ilike.%${term}%`);
+      }
+    }
+  }
+
+  query = query.range(from, to);
 
   const { data: logsRaw, count, error } = await query;
   if (error) return { success: false, error: error.message };

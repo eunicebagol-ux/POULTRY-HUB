@@ -19,6 +19,7 @@ interface PageProps {
     actorId?: string;
     dateFrom?: string;
     dateTo?: string;
+    search?: string;
   }>;
 }
 
@@ -59,6 +60,7 @@ export default async function ActivityLogsPage({ searchParams }: PageProps) {
   const actorId = params.actorId ?? "";
   const dateFrom = params.dateFrom ?? "";
   const dateTo = params.dateTo ?? "";
+  const search = params.search ?? "";
 
   return (
     <div className="space-y-6">
@@ -89,6 +91,7 @@ export default async function ActivityLogsPage({ searchParams }: PageProps) {
           actorId={actorId}
           dateFrom={dateFrom}
           dateTo={dateTo}
+          search={search}
         />
       </Suspense>
     </div>
@@ -102,6 +105,7 @@ async function ActivityLogsContent({
   actorId,
   dateFrom,
   dateTo,
+  search,
 }: {
   page: number;
   action: string;
@@ -109,6 +113,7 @@ async function ActivityLogsContent({
   actorId: string;
   dateFrom: string;
   dateTo: string;
+  search: string;
 }) {
   const [logsResult, filterResult] = await Promise.all([
     getActivityLogs({
@@ -119,6 +124,7 @@ async function ActivityLogsContent({
       actorId: actorId || undefined,
       dateFrom: dateFrom || undefined,
       dateTo: dateTo || undefined,
+      search: search || undefined,
     }),
     getActivityLogFilterOptions(),
   ]);
@@ -152,6 +158,7 @@ async function ActivityLogsContent({
           currentActorId={actorId}
           currentDateFrom={dateFrom}
           currentDateTo={dateTo}
+          currentSearch={search}
         />
       </CardHeader>
       <CardContent className="p-0">

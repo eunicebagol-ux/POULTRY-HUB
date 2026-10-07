@@ -10,6 +10,8 @@ export const ACTION_LABELS: Record<string, string> = {
   RECORD_MORTALITY: "Record Mortality",
   RECORD_CULLING: "Record Culling",
   UPDATE_USER_ROLE: "Update User Role",
+  USER_ROLE_CHANGED: "Update User Role",
+  USER_STATUS_CHANGED: "Update User Status",
   DEACTIVATE_USER: "Deactivate User",
   ACTIVATE_USER: "Activate User",
 };
@@ -125,14 +127,26 @@ export function formatMetadataSummary(
         return parts.join(" · ") || JSON.stringify(metadata);
       }
       case "UPDATE_USER_ROLE":
-      case "DEACTIVATE_USER":
-      case "ACTIVATE_USER": {
-        const target = metadata.target_user as string | undefined;
-        const oldRole = metadata.old_role as string | undefined;
-        const newRole = metadata.new_role as string | undefined;
+      case "USER_ROLE_CHANGED": {
+        const target = (metadata.target_name || metadata.target_user) as string | undefined;
+        const oldRole = (metadata.previous_role || metadata.old_role) as string | undefined;
+        const newRole = (metadata.new_role) as string | undefined;
         const parts: string[] = [];
         if (target) parts.push(`User: ${target}`);
         if (oldRole && newRole) parts.push(`Role: ${oldRole} → ${newRole}`);
+        else if (newRole) parts.push(`Role: ${newRole}`);
+        return parts.join(" · ") || JSON.stringify(metadata);
+      }
+      case "USER_STATUS_CHANGED":
+      case "DEACTIVATE_USER":
+      case "ACTIVATE_USER": {
+        const target = (metadata.target_name || metadata.target_user) as string | undefined;
+        const prevStatus = metadata.previous_status !== undefined ? (metadata.previous_status ? "Active" : "Inactive") : undefined;
+        const newStatus = metadata.new_status !== undefined ? (metadata.new_status ? "Active" : "Inactive") : undefined;
+        const parts: string[] = [];
+        if (target) parts.push(`User: ${target}`);
+        if (prevStatus && newStatus) parts.push(`Status: ${prevStatus} → ${newStatus}`);
+        else if (newStatus) parts.push(`Status: ${newStatus}`);
         return parts.join(" · ") || JSON.stringify(metadata);
       }
       default:
