@@ -2,7 +2,6 @@ import { Suspense } from "react";
 import { getProductionReport } from "@/actions/reports";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertTriangle, Activity, Egg, Skull } from "lucide-react";
-import { getCurrentUserProfile } from "@/lib/user-profile";
 
 export default async function ProductionReportPage() {
 

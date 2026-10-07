@@ -1,9 +1,9 @@
 import { Suspense } from "react";
 import Link from "next/link";
+import { type ComponentType } from "react";
 import { format } from "date-fns";
 import { getOverviewReport } from "@/actions/reports";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 
 import {
   BarChart3,
@@ -71,7 +71,7 @@ export default async function ReportsPage() {
   );
 }
 
-function ReportCard({ title, description, href, icon: Icon, color }: { title: string, description: string, href: string, icon: any, color: string }) {
+function ReportCard({ title, description, href, icon: Icon, color }: { title: string, description: string, href: string, icon: ComponentType<{ className?: string }>, color: string }) {
   return (
     <Card className="hover:shadow-md transition-all group overflow-hidden relative">
       <div className={`absolute right-[-20px] top-[-20px] opacity-10 group-hover:scale-150 transition-transform duration-500 ease-in-out`}>
@@ -183,7 +183,7 @@ async function DashboardContent({ isAdmin }: { isAdmin: boolean }) {
   );
 }
 
-function KpiCard({ title, value, icon: Icon, description, valueColor = "" }: { title: string, value: string | number, icon: any, description?: string, valueColor?: string }) {
+function KpiCard({ title, value, icon: Icon, description, valueColor = "" }: { title: string, value: string | number, icon: ComponentType<{ className?: string }>, description?: string, valueColor?: string }) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
