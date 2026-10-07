@@ -38,6 +38,7 @@ export interface FlockOption {
   id: string;
   flock_identifier: string;
   current_bird_count: number;
+  acquisition_date: string;
 }
 
 interface ProductionFormProps {
@@ -74,6 +75,11 @@ export function ProductionForm({
 
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [isPending, setIsPending] = React.useState(false);
+
+  const selectedFlock = React.useMemo(
+    () => flocks.find((f) => f.id === flockId),
+    [flocks, flockId]
+  );
 
   // Live total calculations
   const parsedSizes = React.useMemo(() => {
@@ -171,7 +177,11 @@ export function ProductionForm({
             </Label>
             <Select value={flockId} onValueChange={(val) => setFlockId(val ?? "")}>
               <SelectTrigger id="flock_id" className="w-full">
-                <SelectValue placeholder="Select flock" />
+                <SelectValue placeholder="Select flock">
+                  {selectedFlock
+                    ? `${selectedFlock.flock_identifier} (${selectedFlock.current_bird_count} birds)`
+                    : "Select flock"}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {flocks.map((f) => (
@@ -194,6 +204,7 @@ export function ProductionForm({
               id="production_date"
               type="date"
               value={productionDate}
+              min={selectedFlock?.acquisition_date}
               onChange={(e) => setProductionDate(e.target.value)}
             />
             {errors["production_date"] && (
