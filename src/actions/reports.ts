@@ -299,7 +299,7 @@ export async function getProductionReport(
       });
     }
 
-    const t = trendMap.get(dateStr);
+    const t = trendMap.get(dateStr)!;
     t.totalEggs += p.total_eggs;
     t.goodEggs += p.good_eggs;
     t._damaged += p.damaged_eggs + p.cracked_eggs;
