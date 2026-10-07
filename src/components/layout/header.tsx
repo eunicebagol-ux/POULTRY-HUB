@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import { Menu, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/theme-provider";
 import { NAV_GROUPS } from "./nav-config";
 import type { UserRole } from "@/types";
 
@@ -67,7 +68,8 @@ export function Header({ userRole, userName, onOpenMobileNav }: HeaderProps) {
           </span>
         </div>
 
-        <div className="flex items-center pl-2 border-l border-border/60">
+        <div className="flex items-center gap-3 pl-2 border-l border-border/60">
+          <ThemeToggle />
           <UserButton
             appearance={{
               elements: {

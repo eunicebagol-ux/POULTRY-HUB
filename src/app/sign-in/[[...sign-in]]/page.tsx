@@ -76,16 +76,16 @@ export default function SignInPage() {
       </div>
 
       {/* ── Right Side: Polished SaaS Authentication Area ── */}
-      <div className="flex w-full flex-col items-center justify-center bg-slate-50/60 px-4 py-12 sm:px-6 lg:w-1/2 lg:px-12 xl:w-5/12">
+      <div className="flex w-full flex-col items-center justify-center bg-muted/30 px-4 py-12 sm:px-6 lg:w-1/2 lg:px-12 xl:w-5/12">
         {/* Mobile Header Banner (Visible on mobile/small screens) */}
         <div className="mb-6 flex flex-col items-center text-center lg:hidden">
           <div className="mb-3 flex size-12 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-md ring-1 ring-emerald-400/30">
             <EggIcon className="size-7" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
             POULTRY HUB
           </h1>
-          <p className="text-xs font-medium text-slate-500 mt-1">
+          <p className="text-xs font-medium text-muted-foreground mt-1">
             Smarter Poultry Management, Better Production.
           </p>
         </div>
@@ -95,18 +95,18 @@ export default function SignInPage() {
           <div className="flex size-9 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-400/20">
             <EggIcon className="size-5" />
           </div>
-          <span className="font-bold text-lg text-slate-900 tracking-tight">
+          <span className="font-bold text-lg text-foreground tracking-tight">
             POULTRY HUB
           </span>
         </div>
 
         {/* Card Container Wrapping Clerk SignIn */}
-        <div className="w-full max-w-md rounded-2xl border border-slate-200/80 bg-white p-6 sm:p-8 shadow-xl shadow-slate-900/5 ring-1 ring-slate-900/5 transition-all">
+        <div className="w-full max-w-md rounded-2xl border border-border/60 bg-card p-6 sm:p-8 shadow-xl shadow-slate-900/5 ring-1 ring-slate-900/5 transition-all">
           <SignIn appearance={clerkAppearance} />
         </div>
 
         {/* Subtle Security Footnote */}
-        <div className="mt-8 text-center text-xs text-slate-400">
+        <div className="mt-8 text-center text-xs text-muted-foreground/80">
           <p>Protected by Enterprise Auth &amp; PostgreSQL Security</p>
         </div>
       </div>
