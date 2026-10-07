@@ -45,7 +45,7 @@ export default async function ReportsPage() {
         />
         <ReportCard 
           title="Feed & Efficiency" 
-          description="Feed consumption and FCR metrics" 
+          description="Feed consumption and efficiency metrics" 
           href="/reports/feed" 
           icon={Package} 
           color="text-amber-500" 

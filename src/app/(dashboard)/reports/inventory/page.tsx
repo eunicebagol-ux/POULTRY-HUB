@@ -45,7 +45,7 @@ async function InventoryContent() {
           <CardHeader className="pb-2 bg-blue-50/50">
             <CardTitle className="text-lg flex items-center text-blue-900">
               <Egg className="mr-2 h-5 w-5" />
-              Egg Inventory Valuation
+              Estimated Inventory Value
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-4">
@@ -53,7 +53,7 @@ async function InventoryContent() {
               ${data.eggValuation.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
             <p className="text-sm text-blue-600/80 mt-1">
-              Estimated value of {data.eggTotal.toLocaleString()} eggs in stock
+              Based on recent sales pricing for {data.eggTotal.toLocaleString()} eggs
             </p>
           </CardContent>
         </Card>

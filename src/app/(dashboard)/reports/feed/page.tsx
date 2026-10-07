@@ -65,7 +65,7 @@ async function FeedContent() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex justify-between">
-              Feed per Egg (FCR)
+              Feed per Egg (g/egg)
               <Scale className="h-4 w-4 text-muted-foreground" />
             </CardTitle>
           </CardHeader>
