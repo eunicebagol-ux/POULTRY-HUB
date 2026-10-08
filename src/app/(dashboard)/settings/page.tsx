@@ -1,10 +1,12 @@
-import { Settings, ShieldAlert } from "lucide-react";
+import { ShieldAlert } from "lucide-react";
 import { getCurrentUserProfile } from "@/lib/user-profile";
-import { ModulePlaceholder } from "@/components/shared/module-placeholder";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/server";
+import { SettingsForm } from "@/components/settings/settings-form";
+import type { UpdateSettingsInput } from "@/lib/validations/settings";
 
 export default async function SettingsPage() {
   const profile = await getCurrentUserProfile();
@@ -35,20 +37,62 @@ export default async function SettingsPage() {
     );
   }
 
+  const supabase = await createClient();
+  const { data: settingsData, error } = await supabase
+    .from("system_settings")
+    .select("setting_key, setting_value");
+
+  if (error || !settingsData) {
+    return (
+      <div className="py-12 text-center text-red-500">
+        Failed to load settings. Please try again later.
+      </div>
+    );
+  }
+
+  const initialData: UpdateSettingsInput = {
+    farm_name: "",
+    currency_code: "",
+    currency_symbol: "",
+    default_tray_capacity: 30,
+    timezone: "",
+    date_format: "",
+    low_feed_threshold_kg: 0,
+    low_egg_inventory_threshold_pieces: 0,
+  };
+
+  settingsData.forEach((setting) => {
+    switch (setting.setting_key) {
+      case "farm_name":
+        initialData.farm_name = setting.setting_value as string;
+        break;
+      case "currency_code":
+        initialData.currency_code = setting.setting_value as string;
+        break;
+      case "currency_symbol":
+        initialData.currency_symbol = setting.setting_value as string;
+        break;
+      case "default_tray_capacity":
+        initialData.default_tray_capacity = setting.setting_value as number;
+        break;
+      case "timezone":
+        initialData.timezone = setting.setting_value as string;
+        break;
+      case "date_format":
+        initialData.date_format = setting.setting_value as string;
+        break;
+      case "low_feed_threshold_kg":
+        initialData.low_feed_threshold_kg = setting.setting_value as number;
+        break;
+      case "low_egg_inventory_threshold_pieces":
+        initialData.low_egg_inventory_threshold_pieces = setting.setting_value as number;
+        break;
+    }
+  });
+
   return (
-    <ModulePlaceholder
-      title="System Settings"
-      description="Configure farm identity, default tray capacity, currency symbol, and inventory alert thresholds."
-      icon={Settings}
-      adminOnly
-      capabilities={[
-        "Farm Name & Branding Configuration",
-        "Currency Code & Symbol (PHP / ₱)",
-        "Default Tray Capacity Setting (default: 30 pieces)",
-        "Low Feed Stock Warning Threshold (kg)",
-        "Low Egg Inventory Warning Threshold (pieces)",
-        "Timezone & Date Display Preferences",
-      ]}
-    />
+    <div className="mx-auto max-w-4xl py-6">
+      <SettingsForm initialData={initialData} />
+    </div>
   );
 }
