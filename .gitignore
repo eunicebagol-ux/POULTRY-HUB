@@ -23,3 +23,25 @@ Thumbs.db
 
 # Test and coverage output
 coverage/
+
+# Local environment files
+.env*
+!.env.example
+
+# Supabase local temporary metadata
+supabase/.temp/
+
+# Generated TypeScript build cache
+*.tsbuildinfo
+
+# Local scratch files
+scratch/
+
+# Local IDE and agent files
+.agents/
+
+# Supabase temporary files
+supabase/.temp/
+
+# Generated build cache
+*.tsbuildinfo
