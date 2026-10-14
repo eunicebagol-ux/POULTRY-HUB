@@ -12,6 +12,10 @@ import {
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { getCustomerDashboardData } from "@/actions/customer-portal";
+import {
+  resolveCustomerDisplayName,
+  isMeaningfulCustomerName,
+} from "@/lib/customer-display";
 import { getMyOrders } from "@/actions/customer-orders";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -56,16 +60,13 @@ export default async function CustomerDashboardPage() {
     ["PENDING", "CONFIRMED", "PREPARING", "READY"].includes(o.status)
   );
 
-  // Derive display name from verified identity
-  // Guard: reject email-looking values that were incorrectly stored as names
-  const looksLikeEmail = (v: string | null | undefined): boolean =>
-    !!v && v.includes("@") && v.includes(".");
-  const clerkName = [clerkUser?.firstName, clerkUser?.lastName].filter(Boolean).join(" ").trim();
-  const customerDisplayName =
-    (customerRecord?.name && !looksLikeEmail(customerRecord.name) ? customerRecord.name : null) ||
-    (profile.id === clerkUser?.id && profile.full_name && !looksLikeEmail(profile.full_name) ? profile.full_name : null) ||
-    (clerkName && !looksLikeEmail(clerkName) ? clerkName : null) ||
-    "Customer";
+  // Derive display name from verified identity (email username used as fallback)
+  const customerDisplayName = resolveCustomerDisplayName({
+    profile,
+    customerRecord,
+    clerkUser,
+    email: primaryEmail,
+  });
 
   const formatCurrency = (amount: number) => {
     return `${DEFAULT_CURRENCY_SYMBOL}${amount.toLocaleString("en-PH", {
@@ -83,7 +84,7 @@ export default async function CustomerDashboardPage() {
             Customer Dashboard
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Welcome, <span className="font-semibold text-foreground">{customerDisplayName}</span>. Manage your egg purchases, view order status, and track invoices.
+            Welcome, <span className="font-semibold text-foreground">{customerDisplayName}</span>! Manage your egg purchases, view order status, and track invoices.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -395,7 +396,7 @@ export default async function CustomerDashboardPage() {
             </CardHeader>
             <CardContent className="pt-6">
               <CustomerProfileForm
-                initialFullName={customerDisplayName}
+                initialFullName={isMeaningfulCustomerName(customerDisplayName) ? customerDisplayName : ""}
                 initialPhone={customerRecord?.phone || profile.phone}
                 initialAddress={customerRecord?.address || null}
                 email={primaryEmail}

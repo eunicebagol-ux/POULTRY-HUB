@@ -78,82 +78,72 @@ const updateProfileSchema = z.object({
 
 export type UpdateCustomerProfileInput = z.infer<typeof updateProfileSchema>;
 
+import { resolveCustomerDisplayName } from "@/lib/customer-display";
+
 /**
  * Lightweight helper for layout header display.
- * Resolves the customer's name without loading full dashboard data.
- * Rejects email-looking values that were incorrectly stored as names.
+ * Resolves the customer's name from profile, customer record, or Clerk identity.
  */
 export async function getCustomerDisplayName(): Promise<string> {
-  // Simple check: does this look like an email address?
-  const looksLikeEmail = (v: string | null | undefined): boolean =>
-    !!v && v.includes("@") && v.includes(".");
-
   try {
     const caller = await getCurrentUserProfile();
     if (!caller) {
-      console.log("[getCustomerDisplayName] No caller profile → 'Customer'");
       return "Customer";
     }
 
     const clerkUser = await currentUser();
-    const clerkName = [clerkUser?.firstName, clerkUser?.lastName]
-      .filter(Boolean)
-      .join(" ")
-      .trim();
+    const verifiedEmail =
+      clerkUser?.emailAddresses?.find(
+        (e) =>
+          (clerkUser.primaryEmailAddressId ? e.id === clerkUser.primaryEmailAddressId : false) &&
+          e.verification?.status === "verified"
+      )?.emailAddress?.toLowerCase().trim() ||
+      clerkUser?.emailAddresses?.find((e) => e.verification?.status === "verified")
+        ?.emailAddress?.toLowerCase().trim() ||
+      clerkUser?.emailAddresses?.[0]?.emailAddress?.toLowerCase().trim();
 
-    // Try to find linked customer record name
-    if (caller.id) {
-      const supabase = await createClient();
-      const { data: custByClerkId } = await supabase
-        .from("customers")
-        .select("name")
-        .eq("clerk_user_id", caller.id)
-        .maybeSingle();
+    // Look for customer record in customers table (safely without crashing on missing clerk_user_id column)
+    let customerRecord: { name: string | null; contact_person: string | null; email: string | null } | null = null;
+    try {
+      const adminClient = createAdminClient();
 
-      if (custByClerkId?.name && !looksLikeEmail(custByClerkId.name)) {
-        console.log(`[getCustomerDisplayName] Source: customers.name = "${custByClerkId.name}"`);
-        return custByClerkId.name;
+      // Check by clerk_user_id if column exists
+      try {
+        const { data: byClerk } = await adminClient
+          .from("customers")
+          .select("name, contact_person, email")
+          .eq("clerk_user_id", caller.id)
+          .maybeSingle();
+
+        if (byClerk) {
+          customerRecord = byClerk;
+        }
+      } catch {
+        // clerk_user_id column might not exist in database schema
       }
 
-      // Fallback: check by verified email for unlinked records
-      const verifiedEmail = clerkUser?.emailAddresses
-        ?.find((e) => e.verification?.status === "verified")
-        ?.emailAddress?.toLowerCase()
-        .trim();
-
-      if (verifiedEmail) {
-        const { data: custByEmail } = await supabase
+      // Fallback: check by verified email
+      if (!customerRecord && verifiedEmail) {
+        const { data: byEmail } = await adminClient
           .from("customers")
-          .select("name, clerk_user_id")
+          .select("name, contact_person, email")
           .eq("email", verifiedEmail)
           .maybeSingle();
 
-        if (custByEmail?.name && !custByEmail.clerk_user_id && !looksLikeEmail(custByEmail.name)) {
-          console.log(`[getCustomerDisplayName] Source: customers (by email).name = "${custByEmail.name}"`);
-          return custByEmail.name;
+        if (byEmail) {
+          customerRecord = byEmail;
         }
       }
+    } catch {
+      // Graceful fallback if database lookup fails
     }
 
-    // Fallback chain: profile name → Clerk name → "Customer"
-    const profileName =
-      caller.id === clerkUser?.id ? caller.full_name : null;
-
-    if (profileName && !looksLikeEmail(profileName)) {
-      console.log(`[getCustomerDisplayName] Source: profiles.full_name = "${profileName}"`);
-      return profileName;
-    }
-
-    if (clerkName && !looksLikeEmail(clerkName)) {
-      console.log(`[getCustomerDisplayName] Source: Clerk firstName/lastName = "${clerkName}"`);
-      return clerkName;
-    }
-
-    console.log(
-      `[getCustomerDisplayName] All sources were empty or email-like → 'Customer'. ` +
-      `profile.full_name="${caller.full_name}", clerkName="${clerkName}"`
-    );
-    return "Customer";
+    return resolveCustomerDisplayName({
+      profile: caller,
+      customerRecord,
+      clerkUser,
+      email: verifiedEmail,
+    });
   } catch (err) {
     console.error("[getCustomerDisplayName] Error:", err);
     return "Customer";
@@ -207,37 +197,33 @@ export async function getCustomerDashboardData(): Promise<ActionResult<CustomerD
       is_active: boolean;
     } | null = null;
 
-    const { data: custByClerkId } = await supabase
-      .from("customers")
-      .select("id, name, contact_person, phone, email, address, is_active")
-      .eq("clerk_user_id", caller.id)
-      .maybeSingle();
+    const adminClient = createAdminClient();
 
-    if (custByClerkId) {
-      customerRecord = custByClerkId;
-    } else if (verifiedEmail) {
-      // Stage 2: Safe auto-linking via verified email.
-      // Note on DB uniqueness: While unique index customers_clerk_user_id_key is defined in migration 012/013,
-      // non-NULL uniqueness is also enforced at application level by failing closed if multiple unlinked rows match.
-      const { data: matchingCusts } = await supabase
+    // Stage 1: Lookup using clerk_user_id if column exists
+    try {
+      const { data: custByClerkId, error: clerkColErr } = await adminClient
         .from("customers")
-        .select("id, name, contact_person, phone, email, address, is_active, clerk_user_id")
-        .eq("email", verifiedEmail);
+        .select("id, name, contact_person, phone, email, address, is_active")
+        .eq("clerk_user_id", caller.id)
+        .maybeSingle();
 
-      const unlinkedCusts = (matchingCusts ?? []).filter((c) => !c.clerk_user_id);
+      if (!clerkColErr && custByClerkId) {
+        customerRecord = custByClerkId;
+      }
+    } catch {
+      // clerk_user_id column might not exist in database schema
+    }
 
-      if (unlinkedCusts.length === 1) {
-        const targetCust = unlinkedCusts[0];
-        const adminClient = createAdminClient();
-        const { error: linkErr } = await adminClient
+    // Stage 2: Safe lookup via verified email
+    if (!customerRecord && verifiedEmail) {
+      try {
+        const { data: matchingCusts } = await adminClient
           .from("customers")
-          .update({
-            clerk_user_id: caller.id,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", targetCust.id);
+          .select("id, name, contact_person, phone, email, address, is_active")
+          .eq("email", verifiedEmail);
 
-        if (!linkErr) {
+        if (matchingCusts && matchingCusts.length === 1) {
+          const targetCust = matchingCusts[0];
           customerRecord = {
             id: targetCust.id,
             name: targetCust.name,
@@ -247,9 +233,23 @@ export async function getCustomerDashboardData(): Promise<ActionResult<CustomerD
             address: targetCust.address,
             is_active: targetCust.is_active,
           };
+
+          // If clerk_user_id column exists, link it safely
+          try {
+            await adminClient
+              .from("customers")
+              .update({
+                clerk_user_id: caller.id,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", targetCust.id);
+          } catch {
+            // Ignore if clerk_user_id column is not present
+          }
         }
+      } catch {
+        // Safe fallback if customers table query fails
       }
-      // If matchingCusts has >1 unlinked rows or rows linked to another user, fail closed
     }
 
     // If no purchases exist yet because customer has no farm record, return safe zero-state
@@ -485,29 +485,42 @@ export async function updateCustomerProfile(
     if (caller.id) {
       let linkedCustomerId: string | null = null;
 
-      // Stage 1: Resolve customer record by clerk_user_id
-      const { data: custByClerk } = await adminClient
-        .from("customers")
-        .select("id")
-        .eq("clerk_user_id", caller.id)
-        .maybeSingle();
-
-      if (custByClerk) {
-        linkedCustomerId = custByClerk.id;
-      } else if (verifiedEmail) {
-        // Stage 2: Resolve single unlinked record by verified email and auto-link
-        const { data: matchingCusts } = await adminClient
+      // Stage 1: Try resolve customer record by clerk_user_id if column exists
+      try {
+        const { data: custByClerk, error: clerkErr } = await adminClient
           .from("customers")
-          .select("id, clerk_user_id")
-          .eq("email", verifiedEmail);
+          .select("id")
+          .eq("clerk_user_id", caller.id)
+          .maybeSingle();
 
-        const unlinkedCusts = (matchingCusts ?? []).filter((c) => !c.clerk_user_id);
-        if (unlinkedCusts.length === 1) {
-          linkedCustomerId = unlinkedCusts[0].id;
-          await adminClient
+        if (!clerkErr && custByClerk) {
+          linkedCustomerId = custByClerk.id;
+        }
+      } catch {
+        // clerk_user_id column might not exist
+      }
+
+      // Stage 2: Resolve record by verified email
+      if (!linkedCustomerId && verifiedEmail) {
+        try {
+          const { data: matchingCusts } = await adminClient
             .from("customers")
-            .update({ clerk_user_id: caller.id, updated_at: new Date().toISOString() })
-            .eq("id", linkedCustomerId);
+            .select("id")
+            .eq("email", verifiedEmail);
+
+          if (matchingCusts && matchingCusts.length === 1) {
+            linkedCustomerId = matchingCusts[0].id;
+            try {
+              await adminClient
+                .from("customers")
+                .update({ clerk_user_id: caller.id, updated_at: new Date().toISOString() })
+                .eq("id", linkedCustomerId);
+            } catch {
+              // Ignore if clerk_user_id column is not present
+            }
+          }
+        } catch {
+          // Safe fallback
         }
       }
 
