@@ -549,4 +549,244 @@ describe("Customer Orders & Inventory Business Rules", () => {
       expect(oversell.error).toContain("exceeds available 200 pcs");
     });
   });
+
+  // ── 8. Customer Record Resolution & Account Linkage Rules ───────────────────
+  describe("8. Customer Record Resolution & Account Linkage Rules", () => {
+    interface MockProfile {
+      id: string;
+      role: "ADMIN" | "STAFF" | "CUSTOMER";
+      full_name: string;
+      is_active: boolean;
+      email?: string;
+    }
+
+    interface MockCustomer {
+      id: string;
+      clerk_user_id: string | null;
+      name: string;
+      email: string | null;
+      is_active: boolean;
+    }
+
+    // Helper simulating the resolveCustomerRecord business logic
+    const resolveCustomer = (
+      caller: MockProfile | null,
+      customers: MockCustomer[],
+      verifiedEmail?: string
+    ): {
+      result: { id: string; is_active: boolean } | null;
+      updatedCustomers: MockCustomer[];
+      error?: string;
+    } => {
+      if (!caller) return { result: null, updatedCustomers: customers, error: "Unauthorized" };
+
+      if (caller.role !== "CUSTOMER") {
+        return {
+          result: null,
+          updatedCustomers: customers,
+          error: "Only approved CUSTOMER accounts may place orders.",
+        };
+      }
+
+      const list = [...customers];
+
+      // 1. Primary: 1-to-1 Clerk user ID linkage
+      const byClerk = list.find((c) => c.clerk_user_id === caller.id);
+      if (byClerk) {
+        if (caller.is_active && !byClerk.is_active) {
+          byClerk.is_active = true;
+        }
+        return { result: { id: byClerk.id, is_active: byClerk.is_active }, updatedCustomers: list };
+      }
+
+      // 2. Fallback: verified email
+      if (verifiedEmail) {
+        const unlinked = list.filter((c) => c.email === verifiedEmail && !c.clerk_user_id);
+        if (unlinked.length === 1) {
+          unlinked[0].clerk_user_id = caller.id;
+          unlinked[0].is_active = caller.is_active;
+          return {
+            result: { id: unlinked[0].id, is_active: unlinked[0].is_active },
+            updatedCustomers: list,
+          };
+        }
+      }
+
+      // 3. Auto-provision missing customer
+      const newCust: MockCustomer = {
+        id: `cust-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        clerk_user_id: caller.id,
+        name: caller.full_name || "Customer",
+        email: verifiedEmail || null,
+        is_active: caller.is_active,
+      };
+      list.push(newCust);
+      return { result: { id: newCust.id, is_active: newCust.is_active }, updatedCustomers: list };
+    };
+
+    it("resolves a correctly linked active customer record", () => {
+      const caller: MockProfile = {
+        id: "user_customer_1",
+        role: "CUSTOMER",
+        full_name: "Angela Customer",
+        is_active: true,
+      };
+
+      const customers: MockCustomer[] = [
+        {
+          id: "cust-uuid-1",
+          clerk_user_id: "user_customer_1",
+          name: "Angela Customer",
+          email: "angela@example.com",
+          is_active: true,
+        },
+      ];
+
+      const { result, error } = resolveCustomer(caller, customers);
+      expect(error).toBeUndefined();
+      expect(result).not.toBeNull();
+      expect(result?.id).toBe("cust-uuid-1");
+      expect(result?.is_active).toBe(true);
+    });
+
+    it("synchronizes customer active status when profile is active but customer was inactive", () => {
+      const caller: MockProfile = {
+        id: "user_customer_2",
+        role: "CUSTOMER",
+        full_name: "Approved Customer",
+        is_active: true,
+      };
+
+      const customers: MockCustomer[] = [
+        {
+          id: "cust-uuid-2",
+          clerk_user_id: "user_customer_2",
+          name: "Approved Customer",
+          email: "approved@example.com",
+          is_active: false, // Inactive in customers table
+        },
+      ];
+
+      const { result, updatedCustomers } = resolveCustomer(caller, customers);
+      expect(result).not.toBeNull();
+      expect(result?.id).toBe("cust-uuid-2");
+      expect(result?.is_active).toBe(true);
+      expect(updatedCustomers[0].is_active).toBe(true);
+    });
+
+    it("correctly identifies unapproved/pending customer accounts", () => {
+      const caller: MockProfile = {
+        id: "user_customer_pending",
+        role: "CUSTOMER",
+        full_name: "Pending Customer",
+        is_active: false,
+      };
+
+      const customers: MockCustomer[] = [
+        {
+          id: "cust-uuid-pending",
+          clerk_user_id: "user_customer_pending",
+          name: "Pending Customer",
+          email: "pending@example.com",
+          is_active: false,
+        },
+      ];
+
+      const { result } = resolveCustomer(caller, customers);
+      expect(result).not.toBeNull();
+      expect(result?.is_active).toBe(false);
+
+      // Submit order check: inactive customer is rejected with approval message
+      const canSubmit = result?.is_active === true;
+      expect(canSubmit).toBe(false);
+    });
+
+    it("safely and idempotently auto-provisions a missing customer record for active CUSTOMER", () => {
+      const caller: MockProfile = {
+        id: "user_customer_missing",
+        role: "CUSTOMER",
+        full_name: "New Online Buyer",
+        is_active: true,
+      };
+
+      const initialCustomers: MockCustomer[] = [
+        {
+          id: "cust-existing",
+          clerk_user_id: "user_other",
+          name: "Other Buyer",
+          email: "other@example.com",
+          is_active: true,
+        },
+      ];
+
+      // First call provisions
+      const firstCall = resolveCustomer(caller, initialCustomers, "newbuyer@example.com");
+      expect(firstCall.result).not.toBeNull();
+      expect(firstCall.updatedCustomers).toHaveLength(2);
+
+      const provisionedId = firstCall.result!.id;
+      const provisionedCust = firstCall.updatedCustomers.find((c) => c.clerk_user_id === caller.id);
+      expect(provisionedCust).toBeDefined();
+      expect(provisionedCust?.name).toBe("New Online Buyer");
+      expect(provisionedCust?.is_active).toBe(true);
+
+      // Second call is idempotent — does NOT create another customer record
+      const secondCall = resolveCustomer(caller, firstCall.updatedCustomers, "newbuyer@example.com");
+      expect(secondCall.result?.id).toBe(provisionedId);
+      expect(secondCall.updatedCustomers).toHaveLength(2);
+    });
+
+    it("rejects ADMIN and STAFF callers from customer order resolution", () => {
+      const adminCaller: MockProfile = {
+        id: "user_admin_1",
+        role: "ADMIN",
+        full_name: "Admin User",
+        is_active: true,
+      };
+
+      const staffCaller: MockProfile = {
+        id: "user_staff_1",
+        role: "STAFF",
+        full_name: "Staff User",
+        is_active: true,
+      };
+
+      const customers: MockCustomer[] = [];
+
+      const adminRes = resolveCustomer(adminCaller, customers);
+      expect(adminRes.result).toBeNull();
+      expect(adminRes.error).toContain("CUSTOMER accounts");
+
+      const staffRes = resolveCustomer(staffCaller, customers);
+      expect(staffRes.result).toBeNull();
+      expect(staffRes.error).toContain("CUSTOMER accounts");
+    });
+
+    it("prevents customer account hijacking when an email matches another user's customer record", () => {
+      const caller: MockProfile = {
+        id: "user_attacker",
+        role: "CUSTOMER",
+        full_name: "Attacker",
+        is_active: true,
+      };
+
+      // Customer record with same email but ALREADY linked to another user
+      const customers: MockCustomer[] = [
+        {
+          id: "cust-legit",
+          clerk_user_id: "user_victim",
+          name: "Legit Customer",
+          email: "shared@example.com",
+          is_active: true,
+        },
+      ];
+
+      const { result, updatedCustomers } = resolveCustomer(caller, customers, "shared@example.com");
+      // Must NOT hijack cust-legit; must provision a separate record for user_attacker
+      expect(result?.id).not.toBe("cust-legit");
+      expect(updatedCustomers.find((c) => c.id === "cust-legit")?.clerk_user_id).toBe("user_victim");
+      expect(updatedCustomers).toHaveLength(2);
+    });
+  });
 });
+

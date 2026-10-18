@@ -60,18 +60,32 @@ function isMigration015Missing(errorMsg: string, code?: string): boolean {
 async function resolveCustomerRecord(
   callerId: string
 ): Promise<{ id: string; is_active: boolean } | null> {
-  const supabase = await createClient();
+  const adminClient = createAdminClient();
+  const caller = await getCurrentUserProfile();
 
-  // Primary: Clerk ID linkage
-  const { data: byClerkId } = await supabase
+  if (!caller || caller.role !== "CUSTOMER") {
+    return null;
+  }
+
+  // 1. Primary: match via 1-to-1 Clerk user ID linkage
+  const { data: byClerkId } = await adminClient
     .from("customers")
-    .select("id, is_active")
+    .select("id, is_active, name, email")
     .eq("clerk_user_id", callerId)
     .maybeSingle();
 
-  if (byClerkId) return byClerkId;
+  if (byClerkId) {
+    if (caller.is_active && !byClerkId.is_active) {
+      await adminClient
+        .from("customers")
+        .update({ is_active: true, updated_at: new Date().toISOString() })
+        .eq("id", byClerkId.id);
+      return { id: byClerkId.id, is_active: true };
+    }
+    return { id: byClerkId.id, is_active: byClerkId.is_active };
+  }
 
-  // Fallback: verified email (safe — Clerk guarantees ownership)
+  // 2. Fallback: match via explicitly verified email from Clerk
   const clerkUser = await currentUser();
   if (!clerkUser) return null;
 
@@ -86,24 +100,56 @@ async function resolveCustomerRecord(
     );
 
   const verifiedEmail = verifiedEmailObj?.emailAddress?.toLowerCase().trim();
-  if (!verifiedEmail) return null;
 
-  const { data: byEmail } = await supabase
+  if (verifiedEmail) {
+    const { data: byEmail } = await adminClient
+      .from("customers")
+      .select("id, is_active, clerk_user_id")
+      .eq("email", verifiedEmail);
+
+    const unlinked = (byEmail ?? []).filter((c) => !c.clerk_user_id);
+
+    if (unlinked.length === 1) {
+      const shouldBeActive = caller.is_active || unlinked[0].is_active;
+      await adminClient
+        .from("customers")
+        .update({
+          clerk_user_id: callerId,
+          is_active: shouldBeActive,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", unlinked[0].id);
+
+      return { id: unlinked[0].id, is_active: shouldBeActive };
+    }
+  }
+
+  // 3. Genuinely missing customer record: safely and idempotently provision one
+  const customerName =
+    caller.full_name ||
+    [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ").trim() ||
+    "Customer";
+
+  const phone = caller.phone || clerkUser.phoneNumbers?.[0]?.phoneNumber || null;
+
+  const { data: newCustomer, error: insertErr } = await adminClient
     .from("customers")
-    .select("id, is_active, clerk_user_id")
-    .eq("email", verifiedEmail);
+    .insert({
+      name: customerName,
+      email: verifiedEmail || null,
+      phone: phone,
+      clerk_user_id: callerId,
+      is_active: caller.is_active,
+    })
+    .select("id, is_active")
+    .single();
 
-  const unlinked = (byEmail ?? []).filter((c) => !c.clerk_user_id);
-  if (unlinked.length !== 1) return null;
+  if (insertErr || !newCustomer) {
+    console.error("Failed to auto-provision customer record in payments:", insertErr);
+    return null;
+  }
 
-  // Auto-link
-  const adminClient = createAdminClient();
-  await adminClient
-    .from("customers")
-    .update({ clerk_user_id: callerId, updated_at: new Date().toISOString() })
-    .eq("id", unlinked[0].id);
-
-  return { id: unlinked[0].id, is_active: unlinked[0].is_active };
+  return { id: newCustomer.id, is_active: newCustomer.is_active };
 }
 
 // ─── Queries ──────────────────────────────────────────────────────────────────
