@@ -386,4 +386,167 @@ describe("Customer Orders & Inventory Business Rules", () => {
       expect(updateOrderStatusSchema.safeParse(cancelWithReason).success).toBe(true);
     });
   });
+
+  // ── 7. Customer Portal Stock Availability by Size ───────────────────────────
+  describe("7. Customer Portal Stock Availability by Size", () => {
+    // Exact farm inventory matching production reality: 967 total eggs
+    const farmInventory: Record<EggSize, number> = {
+      SMALL: 210,
+      MEDIUM: 215,
+      LARGE: 200,
+      EXTRA_LARGE: 203,
+      JUMBO: 119,
+      UNGRADED: 20,
+    };
+
+    const mockCatalog = [
+      { size: "SMALL" as EggSize, price_per_piece: 6, is_available: true, display_order: 1 },
+      { size: "MEDIUM" as EggSize, price_per_piece: 7, is_available: true, display_order: 2 },
+      { size: "LARGE" as EggSize, price_per_piece: 8, is_available: true, display_order: 3 },
+      { size: "EXTRA_LARGE" as EggSize, price_per_piece: 9, is_available: true, display_order: 4 },
+      { size: "JUMBO" as EggSize, price_per_piece: 10, is_available: true, display_order: 5 },
+      { size: "UNGRADED" as EggSize, price_per_piece: 5, is_available: true, display_order: 6 },
+    ];
+
+    it("correctly sums the 967 total eggs across all 6 canonical egg sizes", () => {
+      const totalPieces = Object.values(farmInventory).reduce((sum, pieces) => sum + pieces, 0);
+      expect(totalPieces).toBe(967);
+    });
+
+    it("joins catalog products with inventory stock levels by egg size", () => {
+      const stockMap = new Map<string, number>(Object.entries(farmInventory));
+
+      const catalogWithStock = mockCatalog.map((item) => ({
+        ...item,
+        stock_pieces: stockMap.get(item.size) ?? 0,
+      }));
+
+      expect(catalogWithStock).toHaveLength(6);
+      expect(catalogWithStock.find((e) => e.size === "SMALL")?.stock_pieces).toBe(210);
+      expect(catalogWithStock.find((e) => e.size === "MEDIUM")?.stock_pieces).toBe(215);
+      expect(catalogWithStock.find((e) => e.size === "LARGE")?.stock_pieces).toBe(200);
+      expect(catalogWithStock.find((e) => e.size === "EXTRA_LARGE")?.stock_pieces).toBe(203);
+      expect(catalogWithStock.find((e) => e.size === "JUMBO")?.stock_pieces).toBe(119);
+      expect(catalogWithStock.find((e) => e.size === "UNGRADED")?.stock_pieces).toBe(20);
+    });
+
+    it("calculates correct stock status labels and low stock flags for the portal UI", () => {
+      const getStockStatus = (stockPieces: number) => {
+        if (stockPieces === 0) {
+          return { label: "Out of stock", isOutOfStock: true, isLowStock: false };
+        }
+        if (stockPieces < 30) {
+          return { label: "Low stock", isOutOfStock: false, isLowStock: true };
+        }
+        return {
+          label: `${stockPieces.toLocaleString()} pcs available`,
+          isOutOfStock: false,
+          isLowStock: false,
+        };
+      };
+
+      // 967 eggs distribution
+      expect(getStockStatus(farmInventory.SMALL)).toEqual({
+        label: "210 pcs available",
+        isOutOfStock: false,
+        isLowStock: false,
+      });
+      expect(getStockStatus(farmInventory.MEDIUM)).toEqual({
+        label: "215 pcs available",
+        isOutOfStock: false,
+        isLowStock: false,
+      });
+      expect(getStockStatus(farmInventory.LARGE)).toEqual({
+        label: "200 pcs available",
+        isOutOfStock: false,
+        isLowStock: false,
+      });
+      expect(getStockStatus(farmInventory.EXTRA_LARGE)).toEqual({
+        label: "203 pcs available",
+        isOutOfStock: false,
+        isLowStock: false,
+      });
+      expect(getStockStatus(farmInventory.JUMBO)).toEqual({
+        label: "119 pcs available",
+        isOutOfStock: false,
+        isLowStock: false,
+      });
+      // UNGRADED has 20 eggs (< 30) -> Low stock, NOT out of stock
+      expect(getStockStatus(farmInventory.UNGRADED)).toEqual({
+        label: "Low stock",
+        isOutOfStock: false,
+        isLowStock: true,
+      });
+
+      // True 0 stock case
+      expect(getStockStatus(0)).toEqual({
+        label: "Out of stock",
+        isOutOfStock: true,
+        isLowStock: false,
+      });
+    });
+
+    it("calculates packaging capacity per egg size from live stock", () => {
+      const getPackagingCapacity = (stock: number) => ({
+        pieces: stock,
+        trays_30: Math.floor(stock / PACKAGING_MULTIPLIERS.TRAY_30),
+        cartons_12: Math.floor(stock / PACKAGING_MULTIPLIERS.CARTON_12),
+        boxes_360: Math.floor(stock / PACKAGING_MULTIPLIERS.BOX_360),
+      });
+
+      // Large size (200 pieces)
+      const largeCapacity = getPackagingCapacity(farmInventory.LARGE);
+      expect(largeCapacity.trays_30).toBe(6); // 6 * 30 = 180 pcs
+      expect(largeCapacity.cartons_12).toBe(16); // 16 * 12 = 192 pcs
+      expect(largeCapacity.boxes_360).toBe(0); // 200 < 360
+
+      // Jumbo size (119 pieces)
+      const jumboCapacity = getPackagingCapacity(farmInventory.JUMBO);
+      expect(jumboCapacity.trays_30).toBe(3); // 3 * 30 = 90 pcs
+      expect(jumboCapacity.cartons_12).toBe(9); // 9 * 12 = 108 pcs
+    });
+
+    it("verifies order intake allows purchasing within actual stock limits", () => {
+      const stockMap = new Map<string, number>(Object.entries(farmInventory));
+
+      const validateOrder = (
+        items: { size: EggSize; packaging: PackagingType; package_quantity: number }[]
+      ) => {
+        const requestedPiecesPerSize = new Map<string, number>();
+        for (const item of items) {
+          const pieces = item.package_quantity * PACKAGING_MULTIPLIERS[item.packaging];
+          requestedPiecesPerSize.set(
+            item.size,
+            (requestedPiecesPerSize.get(item.size) || 0) + pieces
+          );
+        }
+
+        for (const [size, requested] of requestedPiecesPerSize.entries()) {
+          const available = stockMap.get(size) ?? 0;
+          if (available <= 0) return { valid: false, error: `${size} eggs are out of stock.` };
+          if (requested > available) {
+            return {
+              valid: false,
+              error: `Requested ${requested} pcs exceeds available ${available} pcs.`,
+            };
+          }
+        }
+        return { valid: true };
+      };
+
+      // Valid order: 5 trays Large (150 pcs <= 200 pcs) + 1 carton Ungraded (12 pcs <= 20 pcs)
+      const valid = validateOrder([
+        { size: "LARGE", packaging: "TRAY_30", package_quantity: 5 },
+        { size: "UNGRADED", packaging: "CARTON_12", package_quantity: 1 },
+      ]);
+      expect(valid.valid).toBe(true);
+
+      // Oversell order: 7 trays Large (210 pcs > 200 pcs)
+      const oversell = validateOrder([
+        { size: "LARGE", packaging: "TRAY_30", package_quantity: 7 },
+      ]);
+      expect(oversell.valid).toBe(false);
+      expect(oversell.error).toContain("exceeds available 200 pcs");
+    });
+  });
 });

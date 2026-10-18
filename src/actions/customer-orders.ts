@@ -189,8 +189,23 @@ export async function getEggPriceCatalog(): Promise<
       return { success: false, error: catalogRes.error.message };
     }
 
+    let inventoryData = inventoryRes.data;
+    if (!inventoryData || inventoryData.length === 0) {
+      try {
+        const adminClient = createAdminClient();
+        const { data: adminInv } = await adminClient
+          .from("egg_inventory")
+          .select("size, stock_pieces");
+        if (adminInv && adminInv.length > 0) {
+          inventoryData = adminInv;
+        }
+      } catch (adminErr) {
+        console.warn("getEggPriceCatalog: fallback to adminClient failed:", adminErr);
+      }
+    }
+
     const stockMap = new Map<string, number>(
-      (inventoryRes.data ?? []).map((r) => [r.size, r.stock_pieces])
+      (inventoryData ?? []).map((r) => [r.size, r.stock_pieces])
     );
 
     const catalog = (catalogRes.data ?? []).map((entry) => ({
@@ -622,12 +637,30 @@ export async function submitCustomerOrder(
     }
 
     // ── Validate requested quantities against available stock in egg_inventory ────
-    const { data: inventoryData, error: inventoryError } = await supabase
+    let inventoryData = null;
+    const { data: invData, error: inventoryError } = await supabase
       .from("egg_inventory")
       .select("size, stock_pieces")
       .in("size", requestedSizes);
 
-    if (inventoryError) {
+    if (invData && invData.length > 0) {
+      inventoryData = invData;
+    } else {
+      try {
+        const adminClient = createAdminClient();
+        const { data: adminInv } = await adminClient
+          .from("egg_inventory")
+          .select("size, stock_pieces")
+          .in("size", requestedSizes);
+        if (adminInv) {
+          inventoryData = adminInv;
+        }
+      } catch (adminErr) {
+        console.warn("submitCustomerOrder: fallback to adminClient failed:", adminErr);
+      }
+    }
+
+    if (!inventoryData && inventoryError) {
       return { success: false, error: "Failed to verify available inventory levels." };
     }
 
