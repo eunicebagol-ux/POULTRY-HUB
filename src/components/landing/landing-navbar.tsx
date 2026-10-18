@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { EggIcon, Menu, X } from "lucide-react";
+import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import { ThemeToggle } from "@/components/theme-provider";
 import { cn } from "@/lib/utils";
 
@@ -72,28 +73,47 @@ export function LandingNavbar() {
           {/* ── Desktop right actions ── */}
           <div className="hidden md:flex items-center gap-2">
             <ThemeToggle />
-            <Link
-              href="/sign-in"
-              className={cn(
-                "px-4 py-2 rounded-lg text-sm font-semibold transition-colors duration-150",
-                isSignIn
-                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold ring-1 ring-emerald-500/30"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
-              )}
-            >
-              Sign In
-            </Link>
-            <Link
-              href="/sign-up"
-              className={cn(
-                "px-4 py-2 rounded-lg text-sm font-semibold transition-colors duration-150 shadow-sm",
-                isSignUp
-                  ? "bg-emerald-700 text-white ring-2 ring-emerald-400"
-                  : "bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white"
-              )}
-            >
-              Get Started
-            </Link>
+            <SignedOut>
+              <Link
+                href="/sign-in"
+                className={cn(
+                  "px-4 py-2 rounded-lg text-sm font-semibold transition-colors duration-150",
+                  isSignIn
+                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold ring-1 ring-emerald-500/30"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                )}
+              >
+                Sign In
+              </Link>
+              <Link
+                href="/sign-up"
+                className={cn(
+                  "px-4 py-2 rounded-lg text-sm font-semibold transition-colors duration-150 shadow-sm",
+                  isSignUp
+                    ? "bg-emerald-700 text-white ring-2 ring-emerald-400"
+                    : "bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white"
+                )}
+              >
+                Get Started
+              </Link>
+            </SignedOut>
+            <SignedIn>
+              <Link
+                href="/dashboard"
+                className="px-4 py-2 rounded-lg text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white shadow-sm transition-colors"
+              >
+                Dashboard
+              </Link>
+              <div className="pl-1">
+                <UserButton
+                  appearance={{
+                    elements: {
+                      avatarBox: "size-9 rounded-full ring-2 ring-emerald-600/30",
+                    },
+                  }}
+                />
+              </div>
+            </SignedIn>
           </div>
 
           {/* ── Mobile: theme + hamburger ── */}
@@ -129,30 +149,50 @@ export function LandingNavbar() {
             </a>
           ))}
           <div className="pt-2 border-t border-border/60 flex flex-col gap-2">
-            <Link
-              href="/sign-in"
-              onClick={handleNavClick}
-              className={cn(
-                "block text-center px-4 py-2.5 rounded-lg border border-border/80 text-sm font-semibold transition-colors",
-                isSignIn
-                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold border-emerald-500/30"
-                  : "text-foreground hover:bg-muted/60"
-              )}
-            >
-              Sign In
-            </Link>
-            <Link
-              href="/sign-up"
-              onClick={handleNavClick}
-              className={cn(
-                "block text-center px-4 py-2.5 rounded-lg text-white text-sm font-semibold transition-colors shadow-sm",
-                isSignUp
-                  ? "bg-emerald-700 ring-2 ring-emerald-400"
-                  : "bg-emerald-600 hover:bg-emerald-700"
-              )}
-            >
-              Get Started
-            </Link>
+            <SignedOut>
+              <Link
+                href="/sign-in"
+                onClick={handleNavClick}
+                className={cn(
+                  "block text-center px-4 py-2.5 rounded-lg border border-border/80 text-sm font-semibold transition-colors",
+                  isSignIn
+                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold border-emerald-500/30"
+                    : "text-foreground hover:bg-muted/60"
+                )}
+              >
+                Sign In
+              </Link>
+              <Link
+                href="/sign-up"
+                onClick={handleNavClick}
+                className={cn(
+                  "block text-center px-4 py-2.5 rounded-lg text-white text-sm font-semibold transition-colors shadow-sm",
+                  isSignUp
+                    ? "bg-emerald-700 ring-2 ring-emerald-400"
+                    : "bg-emerald-600 hover:bg-emerald-700"
+                )}
+              >
+                Get Started
+              </Link>
+            </SignedOut>
+            <SignedIn>
+              <Link
+                href="/dashboard"
+                onClick={handleNavClick}
+                className="block text-center px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition-colors shadow-sm"
+              >
+                Go to Dashboard
+              </Link>
+              <div className="flex justify-center py-1">
+                <UserButton
+                  appearance={{
+                    elements: {
+                      avatarBox: "size-9 rounded-full ring-2 ring-emerald-600/30",
+                    },
+                  }}
+                />
+              </div>
+            </SignedIn>
           </div>
         </div>
       </div>

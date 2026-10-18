@@ -46,15 +46,12 @@ export default async function EggSalesPage() {
   const inventoryError = inventoryResult.success ? null : inventoryResult.error;
 
   // ── Summary Metrics ────────────────────────────────────────────────────────
-  const totalRevenue = sales.reduce((sum, s) => sum + s.total_amount, 0);
+  const totalBilled = sales.reduce((sum, s) => sum + s.total_amount, 0);
   const totalSalesCount = sales.length;
-  const totalEggsSoldPieces = sales.reduce(
-    (sum, s) =>
-      sum + s.items.reduce((itemSum, item) => itemSum + item.total_pieces, 0),
-    0
-  );
-  const averageOrderValue =
-    totalSalesCount > 0 ? totalRevenue / totalSalesCount : 0;
+  const paidCount = sales.filter((s) => (s.payment_status ?? "") === "PAID").length;
+  const pendingOrPartialCount = sales.filter(
+    (s) => (s.payment_status ?? "PENDING") === "PENDING" || (s.payment_status ?? "") === "PARTIAL"
+  ).length;
 
   return (
     <div className="space-y-6">
@@ -64,27 +61,25 @@ export default async function EggSalesPage() {
       {/* ── Summary Stat Cards ─────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard
-          label="Total Revenue"
-          value={`${DEFAULT_CURRENCY_SYMBOL}${totalRevenue.toLocaleString(
+          label="Total Billed"
+          value={`${DEFAULT_CURRENCY_SYMBOL}${totalBilled.toLocaleString(
             undefined,
             { minimumFractionDigits: 2, maximumFractionDigits: 2 }
           )}`}
-          highlight={totalRevenue > 0}
+          highlight={totalBilled > 0}
         />
         <StatCard
-          label="Sales Completed"
+          label="Total Sales"
           value={totalSalesCount.toString()}
         />
         <StatCard
-          label="Eggs Sold (pcs)"
-          value={totalEggsSoldPieces.toLocaleString()}
+          label="Fully Paid"
+          value={paidCount.toString()}
+          highlight={paidCount > 0}
         />
         <StatCard
-          label="Average Sale"
-          value={`${DEFAULT_CURRENCY_SYMBOL}${averageOrderValue.toLocaleString(
-            undefined,
-            { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-          )}`}
+          label="Pending / Partial"
+          value={pendingOrPartialCount.toString()}
         />
       </div>
 

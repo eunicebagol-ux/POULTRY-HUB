@@ -20,6 +20,7 @@ import {
 import { FlockForm } from "@/components/flocks/flock-form";
 import { MortalityForm } from "@/components/flocks/mortality-form";
 import { CullingForm } from "@/components/flocks/culling-form";
+import { EggShellColorBadge } from "@/components/flocks/egg-shell-color-badge";
 import { formatDate } from "@/lib/utils";
 import type { Database } from "@/types/database.types";
 import type { FlockStatus } from "@/types";
@@ -128,7 +129,7 @@ export function FlockList({ flocks }: FlockListProps) {
             if (!open) closeDialog();
           }}
         >
-          <DialogContent className="sm:max-w-lg">
+          <DialogContent className="sm:max-w-2xl max-h-[92vh] overflow-y-auto">
             <FlockForm
               onSuccess={closeDialog}
               onCancel={closeDialog}
@@ -160,6 +161,7 @@ export function FlockList({ flocks }: FlockListProps) {
               <TableRow>
                 <TableHead>Flock ID</TableHead>
                 <TableHead>Breed</TableHead>
+                <TableHead>Egg Color</TableHead>
                 <TableHead>Acquired</TableHead>
                 <TableHead>Bird Count</TableHead>
                 <TableHead>Status</TableHead>
@@ -170,8 +172,11 @@ export function FlockList({ flocks }: FlockListProps) {
               {flocks.map((flock) => (
                 <TableRow key={flock.id}>
                   <TableCell className="font-medium">{flock.flock_identifier}</TableCell>
-                  <TableCell className="text-muted-foreground">
+                  <TableCell className="text-foreground font-medium">
                     {flock.breed ?? "—"}
+                  </TableCell>
+                  <TableCell>
+                    <EggShellColorBadge color={flock.egg_shell_color} size="sm" />
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {formatDate(flock.acquisition_date)}
@@ -248,7 +253,7 @@ export function FlockList({ flocks }: FlockListProps) {
           if (!open) closeDialog();
         }}
       >
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-2xl max-h-[92vh] overflow-y-auto">
           <FlockForm
             onSuccess={closeDialog}
             onCancel={closeDialog}
@@ -262,7 +267,7 @@ export function FlockList({ flocks }: FlockListProps) {
           if (!open) closeDialog();
         }}
       >
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-2xl max-h-[92vh] overflow-y-auto">
           {openDialog?.type === "edit" && (
             <FlockForm
               flock={openDialog.flock}

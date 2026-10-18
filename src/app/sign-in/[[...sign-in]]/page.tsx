@@ -4,7 +4,15 @@ import { EggIcon, CheckCircle2 } from "lucide-react";
 import { clerkAppearance } from "@/lib/clerk-theme";
 import { LandingNavbar } from "@/components/landing/landing-navbar";
 
+/**
+ * Sign-In Page — Server Component
+ *
+ * Renders Clerk's authoritative <SignIn /> component within the POULTRY HUB layout.
+ * Signed-out users are presented with credential inputs, and existing sessions
+ * can be continued or switched using Clerk's native account-switching flow.
+ */
 export default function SignInPage() {
+
   return (
     <div className="flex min-h-screen w-full flex-col bg-background font-sans antialiased">
       {/* ── Top Fixed Public Navbar ── */}

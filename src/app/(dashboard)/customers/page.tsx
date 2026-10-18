@@ -1,9 +1,11 @@
-import { Users, UserCheck, UserX, Building2 } from "lucide-react";
+import { Users, UserCheck, UserX, Building2, Banknote } from "lucide-react";
 import { getCurrentUserProfile } from "@/lib/user-profile";
 import { getCustomers } from "@/actions/customers";
+import { getCustomerBalanceSummaries } from "@/actions/payments";
 import { CustomerTable } from "@/components/customers/customer-table";
 import { CustomerDialog } from "@/components/customers/customer-dialog";
 import { Card, CardContent } from "@/components/ui/card";
+import { DEFAULT_CURRENCY_SYMBOL } from "@/lib/constants";
 
 export const metadata = {
   title: "Customer Directory — POULTRY HUB",
@@ -30,8 +32,12 @@ export default async function CustomersPage() {
   }
 
   const isAdmin = profile.role === "ADMIN";
-  const result = await getCustomers();
+  const [result, balanceResult] = await Promise.all([
+    getCustomers(),
+    isAdmin ? getCustomerBalanceSummaries() : Promise.resolve({ success: false as const, error: "" }),
+  ]);
   const customers = result.success ? result.data ?? [] : [];
+  const balanceSummaries = isAdmin && balanceResult.success ? balanceResult.data ?? [] : [];
 
   const totalCount = customers.length;
   const activeCount = customers.filter((c) => c.is_active).length;
@@ -106,6 +112,55 @@ export default async function CustomersPage() {
 
       {/* Main Customer Table */}
       <CustomerTable customers={customers} isAdmin={isAdmin} />
+
+      {/* Outstanding Balances — ADMIN only */}
+      {isAdmin && balanceSummaries.length > 0 && (
+        <section className="space-y-3 mt-6">
+          <div>
+            <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <Banknote className="size-4 text-amber-600" />
+              Outstanding Customer Balances
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Calculated from actual non-cancelled sales and recorded payments.
+              Visible to Administrators only.
+            </p>
+          </div>
+
+          <Card className="border-border/60 shadow-xs overflow-hidden">
+            <CardContent className="p-0">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b bg-muted/30">
+                    <th className="text-left p-3 font-medium text-muted-foreground">Customer</th>
+                    <th className="text-right p-3 font-medium text-muted-foreground">Total Purchases</th>
+                    <th className="text-right p-3 font-medium text-muted-foreground">Total Paid</th>
+                    <th className="text-right p-3 font-medium text-muted-foreground">Outstanding</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {balanceSummaries.map((b) => (
+                    <tr key={b.customer_id} className="border-b last:border-0 hover:bg-muted/20">
+                      <td className="p-3 font-medium text-foreground">{b.customer_name}</td>
+                      <td className="p-3 text-right tabular-nums text-muted-foreground">
+                        {DEFAULT_CURRENCY_SYMBOL}{b.total_sales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td className="p-3 text-right tabular-nums text-emerald-700 dark:text-emerald-400">
+                        {DEFAULT_CURRENCY_SYMBOL}{b.total_paid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td className="p-3 text-right tabular-nums font-semibold">
+                        <span className={b.outstanding_balance > 0 ? "text-amber-700 dark:text-amber-400" : "text-teal-600 dark:text-teal-400"}>
+                          {DEFAULT_CURRENCY_SYMBOL}{b.outstanding_balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+        </section>
+      )}
     </div>
   );
 }

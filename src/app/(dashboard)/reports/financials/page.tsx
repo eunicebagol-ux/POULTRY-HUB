@@ -3,6 +3,7 @@ import { getFinancialReport } from "@/actions/reports";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertTriangle, DollarSign, TrendingDown, TrendingUp } from "lucide-react";
 import { getCurrentUserProfile } from "@/lib/user-profile";
+import { DEFAULT_CURRENCY_SYMBOL } from "@/lib/constants";
 
 export default async function FinancialReportPage() {
   const profile = await getCurrentUserProfile();
@@ -63,7 +64,7 @@ async function FinancialContent() {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-5">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex justify-between">
@@ -73,9 +74,39 @@ async function FinancialContent() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              ${data.summary.totalSales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {DEFAULT_CURRENCY_SYMBOL}{data.summary.totalSales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
             <p className="text-xs text-muted-foreground mt-1">Last 30 days</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex justify-between">
+              Payments Received
+              <DollarSign className="h-4 w-4 text-emerald-600" />
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-emerald-600">
+              {DEFAULT_CURRENCY_SYMBOL}{data.summary.totalPaymentsReceived.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Period total</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex justify-between">
+              Outstanding
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-amber-600">
+              {DEFAULT_CURRENCY_SYMBOL}{data.summary.outstandingReceivables.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Global total</p>
           </CardContent>
         </Card>
 
@@ -88,7 +119,7 @@ async function FinancialContent() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">
-              ${data.summary.totalExpenses.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {DEFAULT_CURRENCY_SYMBOL}{data.summary.totalExpenses.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
             <p className="text-xs text-muted-foreground mt-1">Last 30 days</p>
           </CardContent>
@@ -103,7 +134,7 @@ async function FinancialContent() {
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${data.summary.netResult >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              ${data.summary.netResult.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {DEFAULT_CURRENCY_SYMBOL}{data.summary.netResult.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
             <p className="text-xs text-muted-foreground mt-1">Operating profit/loss</p>
           </CardContent>
@@ -119,7 +150,7 @@ async function FinancialContent() {
             </CardHeader>
             <CardContent>
               <div className="text-xl font-medium">
-                ${c.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                {DEFAULT_CURRENCY_SYMBOL}{c.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
             </CardContent>
           </Card>

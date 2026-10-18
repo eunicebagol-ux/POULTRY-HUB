@@ -7,6 +7,7 @@ import {
   updateFlockSchema,
   recordMortalitySchema,
   recordCullingSchema,
+  BREED_EGG_COLOR_MAP,
   type CreateFlockInput,
   type UpdateFlockInput,
   type RecordMortalityInput,
@@ -41,6 +42,9 @@ export async function createFlock(
 
   const { flock_identifier, breed, acquisition_date, initial_bird_count, notes } = parsed.data;
 
+  // Derive egg shell color from breed — not accepted from the client form.
+  const egg_shell_color = BREED_EGG_COLOR_MAP[breed] ?? "Brown";
+
   try {
     const supabase = await createClient();
 
@@ -49,6 +53,7 @@ export async function createFlock(
       .insert({
         flock_identifier,
         breed: breed || null,
+        egg_shell_color,
         acquisition_date,
         initial_bird_count,
         current_bird_count: initial_bird_count,
@@ -98,6 +103,10 @@ export async function updateFlock(
 
   const { id, flock_identifier, breed, acquisition_date, status, notes } = parsed.data;
 
+  // Re-derive egg shell color from the (possibly updated) breed.
+  // Falls back to the existing DB value if breed is not provided.
+  const derivedEggColor = breed ? (BREED_EGG_COLOR_MAP[breed] ?? "Brown") : undefined;
+
   try {
     const supabase = await createClient();
 
@@ -106,6 +115,7 @@ export async function updateFlock(
       .update({
         flock_identifier,
         breed: breed || null,
+        ...(derivedEggColor ? { egg_shell_color: derivedEggColor } : {}),
         acquisition_date,
         status,
         notes: notes || null,

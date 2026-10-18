@@ -46,6 +46,7 @@ export interface EggSaleView {
   discount: number;
   total_amount: number;
   status: string;
+  payment_status: string;
   notes: string | null;
   created_by: string | null;
   created_at: string;
@@ -88,6 +89,7 @@ export async function getEggSales(limit = 100): Promise<ActionResult<EggSaleView
         discount,
         total_amount,
         status,
+        payment_status,
         notes,
         created_by,
         created_at,

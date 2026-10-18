@@ -32,6 +32,7 @@ import {
   type RecordEggProductionInput,
 } from "@/lib/validations/egg-production";
 import { recordEggProduction } from "@/actions/egg-production";
+import { EggShellColorBadge } from "@/components/flocks/egg-shell-color-badge";
 import type { EggSize } from "@/types";
 
 export interface FlockOption {
@@ -39,6 +40,8 @@ export interface FlockOption {
   flock_identifier: string;
   current_bird_count: number;
   acquisition_date: string;
+  breed?: string | null;
+  egg_shell_color?: string | null;
 }
 
 interface ProductionFormProps {
@@ -238,6 +241,30 @@ export function ProductionForm({
             )}
           </div>
         </div>
+
+        {/* Selected Flock Reference Display */}
+        {selectedFlock && (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-500/25 bg-emerald-50/50 dark:bg-emerald-950/25 p-2.5 px-3.5 text-xs">
+            <div className="flex items-center gap-1.5">
+              <span className="text-muted-foreground font-medium">Batch:</span>
+              <span className="font-semibold text-foreground">{selectedFlock.flock_identifier}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-muted-foreground font-medium">Breed:</span>
+              <span className="font-semibold text-foreground">{selectedFlock.breed ?? "Standard Layer"}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-muted-foreground font-medium">Egg Shell:</span>
+              <EggShellColorBadge color={selectedFlock.egg_shell_color || "Brown"} size="sm" />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-muted-foreground font-medium">Active Birds:</span>
+              <span className="font-semibold text-foreground tabular-nums">
+                {selectedFlock.current_bird_count.toLocaleString()}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Sized Egg Quantities Grid */}
         <div className="space-y-2 rounded-lg border border-border/70 p-3 bg-muted/20">

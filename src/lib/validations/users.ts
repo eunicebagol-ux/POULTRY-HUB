@@ -2,8 +2,8 @@ import { z } from "zod";
 
 export const updateUserRoleSchema = z.object({
   targetUserId: z.string().min(1, "User ID is required"),
-  role: z.enum(["ADMIN", "STAFF"], {
-    message: "Role must be either ADMIN or STAFF",
+  role: z.enum(["ADMIN", "STAFF", "CUSTOMER"], {
+    message: "Role must be ADMIN, STAFF, or CUSTOMER",
   }),
 });
 

@@ -455,6 +455,8 @@ export async function getFeedReport(
 export interface FinancialReportData {
   summary: {
     totalSales: number;
+    totalPaymentsReceived: number;
+    outstandingReceivables: number;
     totalExpenses: number;
     netResult: number;
   };
@@ -486,13 +488,39 @@ export async function getFinancialReport(
   // Sales
   let sQuery = supabase
     .from("egg_sales")
-    .select("sale_date, total_amount, status")
-    .neq("status", "CANCELLED")
+    .select("sale_date, total_amount, payment_status")
+    .neq("payment_status", "CANCELLED")
     .order("sale_date", { ascending: true });
   if (startDate) sQuery = sQuery.gte("sale_date", startDate);
   if (endDate) sQuery = sQuery.lte("sale_date", endDate);
   const { data: sales, error: sErr } = await sQuery;
   if (sErr) return { success: false, error: sErr.message };
+
+  // Payments
+  let pQuery = supabase
+    .from("payments")
+    .select("payment_date, amount")
+    .order("payment_date", { ascending: true });
+  if (startDate) pQuery = pQuery.gte("payment_date", startDate);
+  if (endDate) pQuery = pQuery.lte("payment_date", endDate);
+  const { data: payments, error: pErr } = await pQuery;
+  if (pErr) return { success: false, error: pErr.message };
+
+  // Outstanding Receivables (Global)
+  const { data: allSales, error: allSErr } = await supabase
+    .from("egg_sales")
+    .select("total_amount")
+    .neq("payment_status", "CANCELLED");
+  const { data: allPayments, error: allPErr } = await supabase
+    .from("payments")
+    .select("amount");
+
+  let outstandingReceivables = 0;
+  if (!allSErr && !allPErr && allSales && allPayments) {
+    const totalS = allSales.reduce((sum, row) => sum + (Number(row.total_amount) || 0), 0);
+    const totalP = allPayments.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+    outstandingReceivables = Math.max(0, totalS - totalP);
+  }
 
   // Expenses
   let eQuery = supabase
@@ -506,6 +534,8 @@ export async function getFinancialReport(
 
   const summary = {
     totalSales: 0,
+    totalPaymentsReceived: 0,
+    outstandingReceivables,
     totalExpenses: 0,
     netResult: 0,
   };
@@ -521,6 +551,11 @@ export async function getFinancialReport(
     trendMap.get(date)!.sales += amt;
   }
 
+  for (const p of (payments || [])) {
+    const amt = Number(p.amount) || 0;
+    summary.totalPaymentsReceived += amt;
+  }
+
   for (const e of (expenses || [])) {
     const amt = Number(e.amount) || 0;
     summary.totalExpenses += amt;
@@ -532,7 +567,7 @@ export async function getFinancialReport(
     catMap.set(cat, (catMap.get(cat) || 0) + amt);
   }
 
-  summary.netResult = summary.totalSales - summary.totalExpenses;
+  summary.netResult = summary.totalPaymentsReceived - summary.totalExpenses;
 
   const trend = Array.from(trendMap.entries())
     .map(([date, data]) => ({

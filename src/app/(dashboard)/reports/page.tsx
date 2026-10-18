@@ -4,6 +4,7 @@ import { type ComponentType } from "react";
 import { format } from "date-fns";
 import { getOverviewReport } from "@/actions/reports";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { DEFAULT_CURRENCY_SYMBOL } from "@/lib/constants";
 
 import {
   BarChart3,
@@ -160,19 +161,19 @@ async function DashboardContent({ isAdmin }: { isAdmin: boolean }) {
           <div className="grid gap-4 md:grid-cols-3">
             <KpiCard
               title="Total Revenue"
-              value={`$${(data.totalEggSales || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+              value={`${DEFAULT_CURRENCY_SYMBOL}${(data.totalEggSales || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
               icon={TrendingUp}
               valueColor="text-green-600"
             />
             <KpiCard
               title="Recorded Expenses"
-              value={`$${(data.recordedExpenses || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+              value={`${DEFAULT_CURRENCY_SYMBOL}${(data.recordedExpenses || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
               icon={TrendingDown}
               valueColor="text-red-600"
             />
             <KpiCard
               title="Net Operating Result"
-              value={`$${(data.netOperatingResult || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+              value={`${DEFAULT_CURRENCY_SYMBOL}${(data.netOperatingResult || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
               icon={DollarSign}
               valueColor={(data.netOperatingResult || 0) >= 0 ? "text-green-600" : "text-red-600"}
             />

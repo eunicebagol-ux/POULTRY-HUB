@@ -13,6 +13,7 @@ import {
   UserCheck,
   History,
   Settings,
+  ClipboardList,
   type LucideIcon,
 } from "lucide-react";
 import type { UserRole } from "@/types";
@@ -78,6 +79,11 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     groupLabel: "SALES",
     items: [
+      {
+        title: "Customer Orders",
+        href: "/customer-orders",
+        icon: ClipboardList,
+      },
       {
         title: "Egg Sales",
         href: "/egg-sales",

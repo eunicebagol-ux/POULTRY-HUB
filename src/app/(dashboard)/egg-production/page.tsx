@@ -40,7 +40,7 @@ export default async function EggProductionPage() {
     // 1. Fetch active flocks
     const { data: flocksData, error: flocksError } = await supabase
       .from("flocks")
-      .select("id, flock_identifier, current_bird_count, acquisition_date")
+      .select("id, flock_identifier, current_bird_count, acquisition_date, breed, egg_shell_color")
       .eq("status", "ACTIVE")
       .lte("acquisition_date", todayStr)
       .order("flock_identifier");

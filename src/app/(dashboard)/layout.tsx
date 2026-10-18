@@ -19,6 +19,11 @@ export default async function AuthenticatedLayout({
   // Resolve profile from Supabase profiles table
   const profile = await getCurrentUserProfile();
 
+  // Security Guard: Customers are strictly isolated from farm operations
+  if (profile && profile.role === "CUSTOMER") {
+    redirect("/customer/dashboard");
+  }
+
   // Profile exists and is active — normal operation
   if (profile && profile.is_active) {
     return (

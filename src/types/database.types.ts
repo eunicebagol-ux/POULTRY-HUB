@@ -6,13 +6,32 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[];
 
-export type UserRole = "ADMIN" | "STAFF";
+export type UserRole = "ADMIN" | "STAFF" | "CUSTOMER";
 export type EggSize = "SMALL" | "MEDIUM" | "LARGE" | "EXTRA_LARGE" | "JUMBO" | "UNGRADED";
 export type PackagingType = "PIECE" | "TRAY_30" | "CARTON_12" | "BOX_360";
 export type EntryType = "STANDARD" | "CORRECTION_REVERSAL";
 export type EggTransactionType = "PRODUCTION" | "SALE" | "ADJUSTMENT" | "CORRECTION";
 export type FeedTransactionType = "STOCK_RECEIVED" | "CONSUMPTION" | "ADJUSTMENT" | "CORRECTION";
 export type FlockStatus = "ACTIVE" | "RETIRED" | "QUARANTINED";
+export type PaymentMethod = "CASH" | "BANK_TRANSFER" | "CHECK" | "E_WALLET";
+export type PaymentStatus = "PENDING" | "PARTIAL" | "PAID" | "CANCELLED";
+export type CustomerOrderStatus =
+  | "PENDING"
+  | "CONFIRMED"
+  | "PREPARING"
+  | "READY"
+  | "COMPLETED"
+  | "CANCELLED";
+export type CustomerPaymentMethod =
+  | "GCASH"
+  | "BANK_TRANSFER"
+  | "CASH_ON_DELIVERY";
+export type CustomerPaymentStatus =
+  | "PENDING_SUBMISSION"
+  | "SUBMITTED"
+  | "VERIFIED"
+  | "REJECTED"
+  | "REFUNDED";
 
 export interface Database {
   public: {
@@ -55,6 +74,7 @@ export interface Database {
           id: string;
           flock_identifier: string;
           breed: string | null;
+          egg_shell_color: string | null;
           acquisition_date: string;
           initial_bird_count: number;
           current_bird_count: number;
@@ -68,6 +88,7 @@ export interface Database {
           id?: string;
           flock_identifier: string;
           breed?: string | null;
+          egg_shell_color?: string | null;
           acquisition_date: string;
           initial_bird_count: number;
           current_bird_count: number;
@@ -81,6 +102,7 @@ export interface Database {
           id?: string;
           flock_identifier?: string;
           breed?: string | null;
+          egg_shell_color?: string | null;
           acquisition_date?: string;
           initial_bird_count?: number;
           current_bird_count?: number;
@@ -478,6 +500,7 @@ export interface Database {
           email: string | null;
           address: string | null;
           is_active: boolean;
+          clerk_user_id?: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -489,6 +512,7 @@ export interface Database {
           email?: string | null;
           address?: string | null;
           is_active?: boolean;
+          clerk_user_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -500,6 +524,7 @@ export interface Database {
           email?: string | null;
           address?: string | null;
           is_active?: boolean;
+          clerk_user_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -551,6 +576,7 @@ export interface Database {
           discount: number;
           total_amount: number;
           status: string;
+          payment_status: PaymentStatus;
           notes: string | null;
           created_by: string | null;
           created_at: string;
@@ -565,6 +591,7 @@ export interface Database {
           discount?: number;
           total_amount: number;
           status?: string;
+          payment_status?: PaymentStatus;
           notes?: string | null;
           created_by?: string | null;
           created_at?: string;
@@ -579,6 +606,7 @@ export interface Database {
           discount?: number;
           total_amount?: number;
           status?: string;
+          payment_status?: PaymentStatus;
           notes?: string | null;
           created_by?: string | null;
           created_at?: string;
@@ -638,6 +666,57 @@ export interface Database {
             columns: ["sale_id"];
             isOneToOne: false;
             referencedRelation: "egg_sales";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      payments: {
+        Row: {
+          id: string;
+          sale_id: string;
+          amount: number;
+          payment_method: PaymentMethod;
+          payment_date: string;
+          reference_number: string | null;
+          notes: string | null;
+          recorded_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          sale_id: string;
+          amount: number;
+          payment_method: PaymentMethod;
+          payment_date: string;
+          reference_number?: string | null;
+          notes?: string | null;
+          recorded_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          sale_id?: string;
+          amount?: number;
+          payment_method?: PaymentMethod;
+          payment_date?: string;
+          reference_number?: string | null;
+          notes?: string | null;
+          recorded_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "payments_sale_id_fkey";
+            columns: ["sale_id"];
+            isOneToOne: false;
+            referencedRelation: "egg_sales";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "payments_recorded_by_fkey";
+            columns: ["recorded_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
             referencedColumns: ["id"];
           }
         ];
@@ -769,6 +848,213 @@ export interface Database {
           }
         ];
       };
+      customer_orders: {
+        Row: {
+          id: string;
+          customer_id: string;
+          status: CustomerOrderStatus;
+          requested_date: string | null;
+          sale_id: string | null;
+          notes: string | null;
+          admin_notes: string | null;
+          cancellation_reason: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          customer_id: string;
+          status?: CustomerOrderStatus;
+          requested_date?: string | null;
+          sale_id?: string | null;
+          notes?: string | null;
+          admin_notes?: string | null;
+          cancellation_reason?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          customer_id?: string;
+          status?: CustomerOrderStatus;
+          requested_date?: string | null;
+          sale_id?: string | null;
+          notes?: string | null;
+          admin_notes?: string | null;
+          cancellation_reason?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "customer_orders_customer_id_fkey";
+            columns: ["customer_id"];
+            isOneToOne: false;
+            referencedRelation: "customers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "customer_orders_sale_id_fkey";
+            columns: ["sale_id"];
+            isOneToOne: false;
+            referencedRelation: "egg_sales";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      customer_order_items: {
+        Row: {
+          id: string;
+          order_id: string;
+          size: EggSize;
+          packaging: PackagingType;
+          package_quantity: number;
+          requested_pieces: number;
+          quoted_unit_price: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          order_id: string;
+          size: EggSize;
+          packaging: PackagingType;
+          package_quantity: number;
+          requested_pieces: number;
+          quoted_unit_price: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          order_id?: string;
+          size?: EggSize;
+          packaging?: PackagingType;
+          package_quantity?: number;
+          requested_pieces?: number;
+          quoted_unit_price?: number;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "customer_order_items_order_id_fkey";
+            columns: ["order_id"];
+            isOneToOne: false;
+            referencedRelation: "customer_orders";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      egg_price_catalog: {
+        Row: {
+          id: string;
+          size: EggSize;
+          price_per_piece: number;
+          price_tray_30: number | null;
+          price_carton_12: number | null;
+          price_box_360: number | null;
+          is_available: boolean;
+          display_order: number;
+          updated_by: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          size: EggSize;
+          price_per_piece: number;
+          price_tray_30?: number | null;
+          price_carton_12?: number | null;
+          price_box_360?: number | null;
+          is_available?: boolean;
+          display_order?: number;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          size?: EggSize;
+          price_per_piece?: number;
+          price_tray_30?: number | null;
+          price_carton_12?: number | null;
+          price_box_360?: number | null;
+          is_available?: boolean;
+          display_order?: number;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      customer_payment_submissions: {
+        Row: {
+          id: string;
+          order_id: string;
+          customer_id: string;
+          payment_method: CustomerPaymentMethod;
+          status: CustomerPaymentStatus;
+          reference_number: string | null;
+          customer_notes: string | null;
+          declared_amount: number | null;
+          verified_by: string | null;
+          verified_at: string | null;
+          verification_notes: string | null;
+          rejection_reason: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          order_id: string;
+          customer_id: string;
+          payment_method: CustomerPaymentMethod;
+          status?: CustomerPaymentStatus;
+          reference_number?: string | null;
+          customer_notes?: string | null;
+          declared_amount?: number | null;
+          verified_by?: string | null;
+          verified_at?: string | null;
+          verification_notes?: string | null;
+          rejection_reason?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          order_id?: string;
+          customer_id?: string;
+          payment_method?: CustomerPaymentMethod;
+          status?: CustomerPaymentStatus;
+          reference_number?: string | null;
+          customer_notes?: string | null;
+          declared_amount?: number | null;
+          verified_by?: string | null;
+          verified_at?: string | null;
+          verification_notes?: string | null;
+          rejection_reason?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "customer_payment_submissions_order_id_fkey";
+            columns: ["order_id"];
+            isOneToOne: false;
+            referencedRelation: "customer_orders";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "customer_payment_submissions_customer_id_fkey";
+            columns: ["customer_id"];
+            isOneToOne: false;
+            referencedRelation: "customers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "customer_payment_submissions_verified_by_fkey";
+            columns: ["verified_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -844,6 +1130,17 @@ export interface Database {
         };
         Returns: string;
       };
+      record_egg_payment: {
+        Args: {
+          p_sale_id: string;
+          p_amount: number;
+          p_payment_method: string;
+          p_payment_date: string;
+          p_reference_number?: string | null;
+          p_notes?: string | null;
+        };
+        Returns: string;
+      };
     };
     Enums: {
       user_role: UserRole;
@@ -853,6 +1150,11 @@ export interface Database {
       egg_transaction_type: EggTransactionType;
       feed_transaction_type: FeedTransactionType;
       flock_status: FlockStatus;
+      payment_method: PaymentMethod;
+      payment_status: PaymentStatus;
+      customer_order_status: CustomerOrderStatus;
+      customer_payment_method: CustomerPaymentMethod;
+      customer_payment_status: CustomerPaymentStatus;
     };
   };
 }
