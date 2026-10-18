@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { EggIcon, Menu, X } from "lucide-react";
-import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
+import { Show, UserButton } from "@clerk/nextjs";
 import { ThemeToggle } from "@/components/theme-provider";
 import { cn } from "@/lib/utils";
 
@@ -73,7 +73,7 @@ export function LandingNavbar() {
           {/* ── Desktop right actions ── */}
           <div className="hidden md:flex items-center gap-2">
             <ThemeToggle />
-            <SignedOut>
+            <Show when="signed-out">
               <Link
                 href="/sign-in"
                 className={cn(
@@ -96,8 +96,8 @@ export function LandingNavbar() {
               >
                 Get Started
               </Link>
-            </SignedOut>
-            <SignedIn>
+            </Show>
+            <Show when="signed-in">
               <Link
                 href="/dashboard"
                 className="px-4 py-2 rounded-lg text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white shadow-sm transition-colors"
@@ -113,7 +113,7 @@ export function LandingNavbar() {
                   }}
                 />
               </div>
-            </SignedIn>
+            </Show>
           </div>
 
           {/* ── Mobile: theme + hamburger ── */}
@@ -149,7 +149,7 @@ export function LandingNavbar() {
             </a>
           ))}
           <div className="pt-2 border-t border-border/60 flex flex-col gap-2">
-            <SignedOut>
+            <Show when="signed-out">
               <Link
                 href="/sign-in"
                 onClick={handleNavClick}
@@ -174,8 +174,8 @@ export function LandingNavbar() {
               >
                 Get Started
               </Link>
-            </SignedOut>
-            <SignedIn>
+            </Show>
+            <Show when="signed-in">
               <Link
                 href="/dashboard"
                 onClick={handleNavClick}
@@ -192,7 +192,7 @@ export function LandingNavbar() {
                   }}
                 />
               </div>
-            </SignedIn>
+            </Show>
           </div>
         </div>
       </div>
