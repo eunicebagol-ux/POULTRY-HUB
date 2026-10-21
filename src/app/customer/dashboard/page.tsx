@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   AlertCircle,
   FileText,
+  ClipboardList,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ import {
   isMeaningfulCustomerName,
 } from "@/lib/customer-display";
 import { getMyOrders } from "@/actions/customer-orders";
+import { CustomerOrdersList } from "@/components/customer/customer-orders-list";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -193,7 +195,7 @@ export default async function CustomerDashboardPage() {
             <div>
               <p className="text-xs text-muted-foreground font-medium">Recorded Orders</p>
               <p className="text-lg sm:text-xl font-bold tabular-nums text-purple-600 dark:text-purple-400">
-                {summary.orderCount}
+                {orders.length}
               </p>
             </div>
           </CardContent>
@@ -201,8 +203,11 @@ export default async function CustomerDashboardPage() {
       </div>
 
       {/* ── Main Tabbed Content ───────────────────────────────────── */}
-      <Tabs defaultValue="purchases" className="space-y-4">
+      <Tabs defaultValue="orders" className="space-y-4">
         <TabsList className="bg-muted/50 p-1 border border-border/60 rounded-xl">
+          <TabsTrigger value="orders" className="text-xs font-semibold rounded-lg flex items-center gap-1.5">
+            <ClipboardList className="size-3.5" /> Purchase Orders ({orders.length})
+          </TabsTrigger>
           <TabsTrigger value="purchases" className="text-xs font-semibold rounded-lg flex items-center gap-1.5">
             <ShoppingBag className="size-3.5" /> Purchase History ({purchases.length})
           </TabsTrigger>
@@ -214,12 +219,25 @@ export default async function CustomerDashboardPage() {
           </TabsTrigger>
         </TabsList>
 
+        {/* ── Tab: Purchase Orders ──────────────────────────────────── */}
+        <TabsContent value="orders" className="space-y-4">
+          {!ordersResult.success && (
+            <Alert className="border-destructive/30 bg-destructive/5">
+              <AlertCircle className="size-4 text-destructive" />
+              <AlertDescription className="text-xs text-destructive/90">
+                {ordersResult.error}
+              </AlertDescription>
+            </Alert>
+          )}
+          <CustomerOrdersList orders={orders} />
+        </TabsContent>
+
         {/* ── Tab: Purchase History ─────────────────────────────────── */}
         <TabsContent value="purchases" className="space-y-4">
           <Card className="border-border/60 shadow-xs">
             <CardHeader className="pb-3 border-b border-border/60">
               <CardTitle className="text-base font-semibold text-foreground">
-                Recorded Purchase Orders
+                Recorded Sales Invoices
               </CardTitle>
               <CardDescription className="text-xs">
                 Official sales records and egg deliveries linked to your customer account.

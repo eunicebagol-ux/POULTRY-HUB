@@ -436,7 +436,7 @@ export async function getMyOrders(): Promise<ActionResult<CustomerOrderView[]>> 
  */
 export async function getAllOrders(
   limit = 200
-): Promise<ActionResult<(CustomerOrderView & { customer_name: string })[]>> {
+): Promise<ActionResult<(CustomerOrderView & { customer_name: string; payment_submission_status: string | null })[]>> {
   const caller = await getCurrentUserProfile();
 
   if (!caller || !caller.is_active || !["ADMIN", "STAFF"].includes(caller.role)) {
@@ -476,6 +476,11 @@ export async function getAllOrders(
           requested_pieces,
           quoted_unit_price,
           egg_type
+        ),
+        customer_payment_submissions (
+          id,
+          status,
+          created_at
         )
       `
       )
@@ -504,6 +509,12 @@ export async function getAllOrders(
       egg_type?: string | null;
     }
 
+    interface RawPaymentSubmissionRef {
+      id: string;
+      status: string;
+      created_at: string;
+    }
+
     interface RawOrderWithCustomer {
       id: string;
       status: string;
@@ -521,6 +532,7 @@ export async function getAllOrders(
       updated_at: string;
       customer?: { id: string; name: string } | null;
       customer_order_items?: RawOrderItem[];
+      customer_payment_submissions?: RawPaymentSubmissionRef[];
     }
 
     const orders = ((data ?? []) as unknown as RawOrderWithCustomer[]).map(
@@ -541,6 +553,15 @@ export async function getAllOrders(
           }
         );
 
+        // Derive the most-relevant payment submission status for this order.
+        // We pick the most recent submission, preferring non-REJECTED ones so
+        // a SUBMITTED proof shows up even if an earlier one was rejected.
+        const submissions = order.customer_payment_submissions ?? [];
+        const latestSubmission = submissions
+          .slice()
+          .sort((a, b) => b.created_at.localeCompare(a.created_at))
+          .find((s) => s.status !== "REJECTED") ?? submissions[0] ?? null;
+
         return {
           id: order.id,
           status: order.status as CustomerOrderStatus,
@@ -559,6 +580,7 @@ export async function getAllOrders(
           items,
           estimated_total: items.reduce((s, i) => s + i.estimated_line_total, 0),
           customer_name: order.customer?.name ?? "Unknown Customer",
+          payment_submission_status: latestSubmission?.status ?? null,
         };
       }
     );

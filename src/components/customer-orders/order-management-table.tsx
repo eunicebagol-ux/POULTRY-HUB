@@ -81,6 +81,8 @@ export interface OrderRowData {
   delivery_barangay?: string | null;
   delivery_address?: string | null;
   pickup_time?: string | null;
+  /** Status of the most recent non-rejected customer payment submission, or null if none. */
+  payment_submission_status?: string | null;
 }
 
 interface OrderManagementTableProps {
@@ -498,10 +500,22 @@ export function OrderManagementTable({ initialOrders }: OrderManagementTableProp
                             )}
                           </TableCell>
                           <TableCell>
-                            <Badge variant="outline" className={`text-[10px] ${cfg.className}`}>
-                              {cfg.icon}
-                              {cfg.label}
-                            </Badge>
+                            <div className="flex flex-col gap-1">
+                              <Badge variant="outline" className={`text-[10px] ${cfg.className}`}>
+                                {cfg.icon}
+                                {cfg.label}
+                              </Badge>
+                              {order.payment_submission_status === "SUBMITTED" && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30 flex items-center gap-1"
+                                  title="This order has a customer payment proof awaiting staff verification. Expand the order to review it."
+                                >
+                                  <AlertCircle className="size-3 shrink-0" />
+                                  Payment Review
+                                </Badge>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell className="text-right font-semibold tabular-nums text-foreground">
                             {formatCurrency(order.estimated_total)}
@@ -767,6 +781,17 @@ export function OrderManagementTable({ initialOrders }: OrderManagementTableProp
                 <p className="font-semibold text-foreground">Fulfillment Workflow Note:</p>
                 <p>
                   Customer order submission does not deduct physical egg inventory. Inventory is decremented when the order is fulfilled and completed.
+                </p>
+              </div>
+
+              {/* Payment verification reminder */}
+              <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-2.5 text-[11px] text-amber-800 dark:text-amber-300 space-y-1">
+                <p className="font-semibold flex items-center gap-1.5">
+                  <AlertCircle className="size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                  Payment Verification is Separate
+                </p>
+                <p>
+                  Confirming or updating this order status does <strong>not</strong> verify any GCash or Bank Transfer payment the customer may have submitted. Payment proofs must be reviewed and verified independently — expand the order row and use the <strong>Payment</strong> section below.
                 </p>
               </div>
             </div>

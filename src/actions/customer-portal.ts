@@ -79,6 +79,7 @@ const updateProfileSchema = z.object({
 export type UpdateCustomerProfileInput = z.infer<typeof updateProfileSchema>;
 
 import { resolveCustomerDisplayName } from "@/lib/customer-display";
+import { calculateCustomerFinancialSummary } from "@/lib/customer-financial-summary";
 
 /**
  * Lightweight helper for layout header display.
@@ -398,11 +399,128 @@ export async function getCustomerDashboardData(): Promise<ActionResult<CustomerD
       }
     }
 
-    // Calculate authoritative totals
-    const nonCancelledSales = purchases.filter((p) => p.status !== "CANCELLED");
-    const totalPurchases = nonCancelledSales.reduce((sum, p) => sum + p.total_amount, 0);
-    const totalPaid = payments.reduce((sum, pay) => sum + pay.amount, 0);
-    const outstandingBalance = Math.max(0, totalPurchases - totalPaid);
+    // Helper to distinguish missing migration from operational DB errors
+    const isMigrationMissing = (err: { message?: string; code?: string } | null | undefined) =>
+      !err ||
+      err.code === "42P01" ||
+      err.code === "PGRST205" ||
+      err.message?.includes("does not exist") ||
+      err.message?.includes("schema cache");
+
+    // Fetch customer intake orders for financial obligation calculation
+    interface RawOrderItem {
+      package_quantity: number;
+      quoted_unit_price: number;
+    }
+    interface RawCustomerOrder {
+      id: string;
+      status: string;
+      sale_id: string | null;
+      customer_order_items?: RawOrderItem[];
+    }
+
+    let customerOrders: RawCustomerOrder[] = [];
+    try {
+      const { data: ordersData, error: ordersErr } = await supabase
+        .from("customer_orders")
+        .select(`
+          id,
+          status,
+          sale_id,
+          customer_order_items (
+            package_quantity,
+            quoted_unit_price
+          )
+        `)
+        .eq("customer_id", customerRecord.id);
+
+      if (!ordersErr && ordersData) {
+        customerOrders = ordersData as unknown as RawCustomerOrder[];
+      } else {
+        const { data: adminOrders, error: adminOrdersErr } = await adminClient
+          .from("customer_orders")
+          .select(`
+            id,
+            status,
+            sale_id,
+            customer_order_items (
+              package_quantity,
+              quoted_unit_price
+            )
+          `)
+          .eq("customer_id", customerRecord.id);
+
+        if (!adminOrdersErr && adminOrders) {
+          customerOrders = adminOrders as unknown as RawCustomerOrder[];
+        } else if (!isMigrationMissing(ordersErr) && !isMigrationMissing(adminOrdersErr)) {
+          console.error("Operational error loading customer orders:", ordersErr || adminOrdersErr);
+          return { success: false, error: "Failed to load customer orders." };
+        }
+      }
+    } catch (ordersEx) {
+      console.error("Exception loading customer orders:", ordersEx);
+      return { success: false, error: "Failed to load customer orders." };
+    }
+
+    // Fetch verified customer payment submissions
+    interface RawPaymentSubmission {
+      id: string;
+      order_id: string;
+      declared_amount: number | null;
+      status: string;
+    }
+
+    let verifiedSubmissions: RawPaymentSubmission[] = [];
+    try {
+      const { data: subData, error: subErr } = await supabase
+        .from("customer_payment_submissions")
+        .select("id, order_id, declared_amount, status")
+        .eq("customer_id", customerRecord.id)
+        .eq("status", "VERIFIED");
+
+      if (!subErr && subData) {
+        verifiedSubmissions = subData as unknown as RawPaymentSubmission[];
+      } else {
+        const { data: adminSubs, error: adminSubErr } = await adminClient
+          .from("customer_payment_submissions")
+          .select("id, order_id, declared_amount, status")
+          .eq("customer_id", customerRecord.id)
+          .eq("status", "VERIFIED");
+
+        if (!adminSubErr && adminSubs) {
+          verifiedSubmissions = adminSubs as unknown as RawPaymentSubmission[];
+        } else if (!isMigrationMissing(subErr) && !isMigrationMissing(adminSubErr)) {
+          console.error("Operational error loading payment submissions:", subErr || adminSubErr);
+          return { success: false, error: "Failed to load verified payment submissions." };
+        }
+      }
+    } catch (subEx) {
+      console.error("Exception loading payment submissions:", subEx);
+      return { success: false, error: "Failed to load verified payment submissions." };
+    }
+
+    // Calculate authoritative totals incorporating orders, sales invoices, and verified payments
+    const summary = calculateCustomerFinancialSummary({
+      purchases,
+      orders: customerOrders.map((o) => ({
+        id: o.id,
+        status: o.status,
+        sale_id: o.sale_id ?? null,
+        items: (o.customer_order_items ?? []).map((i) => ({
+          package_quantity: Number(i.package_quantity) || 0,
+          quoted_unit_price: Number(i.quoted_unit_price) || 0,
+        })),
+      })),
+      ledgerPayments: payments.map((p) => ({
+        sale_id: p.sale_id,
+        amount: p.amount,
+      })),
+      paymentSubmissions: verifiedSubmissions.map((s) => ({
+        order_id: s.order_id,
+        declared_amount: s.declared_amount != null ? Number(s.declared_amount) : null,
+        status: s.status,
+      })),
+    });
 
     return {
       success: true,
@@ -411,12 +529,7 @@ export async function getCustomerDashboardData(): Promise<ActionResult<CustomerD
         customerRecord,
         purchases,
         payments,
-        summary: {
-          totalPurchases,
-          totalPaid,
-          outstandingBalance,
-          orderCount: nonCancelledSales.length,
-        },
+        summary,
       },
     };
   } catch (err) {
