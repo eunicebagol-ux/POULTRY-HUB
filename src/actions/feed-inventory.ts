@@ -32,8 +32,7 @@ export interface FeedTransactionView {
   created_by: string | null;
   created_at: string;
   creator?: {
-    first_name: string | null;
-    last_name: string | null;
+    full_name: string | null;
   } | null;
 }
 
@@ -89,7 +88,7 @@ export async function getFeedTransactions(limit = 100): Promise<ActionResult<Fee
         notes,
         created_by,
         created_at,
-        creator:profiles(first_name, last_name)
+        creator:profiles(full_name)
       `)
       .order("created_at", { ascending: false })
       .limit(limit);

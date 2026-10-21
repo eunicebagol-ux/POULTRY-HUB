@@ -27,8 +27,7 @@ export interface FeedConsumptionView {
     flock_identifier: string;
   } | null;
   creator?: {
-    first_name: string | null;
-    last_name: string | null;
+    full_name: string | null;
   } | null;
 }
 
@@ -66,7 +65,7 @@ export async function getFeedConsumptionHistory(
         created_by,
         created_at,
         flock:flocks(flock_identifier),
-        creator:profiles(first_name, last_name)
+        creator:profiles(full_name)
       `)
       .order("consumption_date", { ascending: false })
       .order("created_at", { ascending: false })

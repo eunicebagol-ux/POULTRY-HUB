@@ -67,7 +67,10 @@ export default async function FeedConsumptionPage() {
         )}
       </div>
 
-      <ConsumptionTable records={history} />
+      <ConsumptionTable
+        records={history}
+        errorMessage={!historyResult.success ? historyResult.error : null}
+      />
     </div>
   );
 }

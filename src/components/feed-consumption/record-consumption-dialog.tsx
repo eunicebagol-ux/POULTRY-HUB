@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { Plus, UtensilsCrossed } from "lucide-react";
 import { toast } from "sonner";
 import { recordFeedConsumptionSchema } from "@/lib/validations/feed-consumption";
@@ -39,6 +40,7 @@ export function RecordConsumptionDialog({
   feedTypes,
   isAuthorized,
 }: RecordConsumptionDialogProps) {
+  const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [isPending, setIsPending] = React.useState(false);
 
@@ -107,6 +109,7 @@ export function RecordConsumptionDialog({
     toast.success("Feed consumption recorded", {
       description: `${parsed.data.quantity_kg} kg of ${parsed.data.feed_type} logged for feeding.`,
     });
+    router.refresh();
     setOpen(false);
 
     // Reset form

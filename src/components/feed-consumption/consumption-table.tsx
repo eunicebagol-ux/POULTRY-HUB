@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { UtensilsCrossed } from "lucide-react";
+import { AlertCircle, UtensilsCrossed } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -16,9 +16,10 @@ import type { FeedConsumptionView } from "@/actions/feed-consumption";
 
 interface ConsumptionTableProps {
   records: FeedConsumptionView[];
+  errorMessage?: string | null;
 }
 
-export function ConsumptionTable({ records }: ConsumptionTableProps) {
+export function ConsumptionTable({ records, errorMessage }: ConsumptionTableProps) {
   const isEmpty = records.length === 0;
 
   return (
@@ -44,7 +45,24 @@ export function ConsumptionTable({ records }: ConsumptionTableProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {isEmpty ? (
+                {errorMessage ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={6}
+                      className="py-12 text-center text-destructive"
+                    >
+                      <div className="flex flex-col items-center gap-2">
+                        <AlertCircle className="size-8 text-destructive" />
+                        <p className="text-sm font-semibold">
+                          Failed to load feed consumption records
+                        </p>
+                        <p className="text-xs text-muted-foreground max-w-md">
+                          {errorMessage}
+                        </p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : isEmpty ? (
                   <TableRow>
                     <TableCell
                       colSpan={6}
@@ -80,9 +98,7 @@ export function ConsumptionTable({ records }: ConsumptionTableProps) {
                         })}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                        {row.creator
-                          ? `${row.creator.first_name || ""} ${row.creator.last_name || ""}`.trim() || "User"
-                          : "System"}
+                        {row.creator?.full_name?.trim() || "System"}
                       </TableCell>
                       <TableCell
                         className="text-xs text-muted-foreground max-w-[220px] truncate"

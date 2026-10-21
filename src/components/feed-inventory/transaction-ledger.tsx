@@ -90,9 +90,7 @@ export function TransactionLedger({ transactions }: TransactionLedgerProps) {
                         })}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                        {tx.creator
-                          ? `${tx.creator.first_name} ${tx.creator.last_name}`
-                          : "System"}
+                        {tx.creator?.full_name?.trim() || "System"}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate" title={tx.notes || ""}>
                         {tx.notes || "—"}
