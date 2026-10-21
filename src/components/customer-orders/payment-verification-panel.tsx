@@ -10,9 +10,12 @@ import {
   Smartphone,
   Building2,
   Truck,
+  Store,
   AlertCircle,
   Loader2,
   ShieldCheck,
+  Calendar,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +69,7 @@ const METHOD_ICONS: Record<CustomerPaymentMethod, React.ReactNode> = {
   GCASH: <Smartphone className="size-3.5 text-blue-500" />,
   BANK_TRANSFER: <Building2 className="size-3.5 text-indigo-500" />,
   CASH_ON_DELIVERY: <Truck className="size-3.5 text-emerald-500" />,
+  CASH_ON_PICKUP: <Store className="size-3.5 text-emerald-500" />,
 };
 
 function PaymentStatusBadge({ status }: { status: CustomerPaymentStatus }) {
@@ -183,15 +187,17 @@ export function PaymentVerificationPanel({
           <PaymentStatusBadge status={submission.status} />
         </div>
 
-        {/* Cash on Delivery warning banner for staff */}
-        {submission.payment_method === "CASH_ON_DELIVERY" && isActionable && (
-          <Alert className="border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200 py-1.5 px-2.5">
-            <AlertCircle className="size-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
-            <AlertDescription className="text-[11px] leading-snug">
-              <strong>Cash on Delivery/Pickup:</strong> Physical cash must be received and counted before verifying.
-            </AlertDescription>
-          </Alert>
-        )}
+        {/* Cash warning banner for staff */}
+        {(submission.payment_method === "CASH_ON_DELIVERY" ||
+          submission.payment_method === "CASH_ON_PICKUP") &&
+          isActionable && (
+            <Alert className="border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200 py-1.5 px-2.5">
+              <AlertCircle className="size-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+              <AlertDescription className="text-[11px] leading-snug">
+                <strong>Cash Payment:</strong> Physical cash must be received and counted before verifying.
+              </AlertDescription>
+            </Alert>
+          )}
 
         {/* Amounts */}
         <div className="space-y-0.5">
@@ -221,6 +227,35 @@ export function PaymentVerificationPanel({
           )}
         </div>
 
+        {submission.bank_name && (
+          <p className="text-[10px] text-muted-foreground">
+            Bank: <span className="font-medium text-foreground">{submission.bank_name}</span>
+          </p>
+        )}
+
+        {submission.sender_name && (
+          <p className="text-[10px] text-muted-foreground">
+            {submission.payment_method === "GCASH" ? "GCash Account" : "Sender"}:{" "}
+            <span className="font-medium text-foreground">{submission.sender_name}</span>
+          </p>
+        )}
+
+        {submission.gcash_number && (
+          <p className="text-[10px] text-muted-foreground">
+            GCash Number:{" "}
+            <span className="font-mono font-medium text-foreground">{submission.gcash_number}</span>
+          </p>
+        )}
+
+        {submission.payment_date && (
+          <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+            <Calendar className="size-3 shrink-0" />
+            <span>
+              Date: <span className="font-medium text-foreground">{submission.payment_date}</span>
+            </span>
+          </p>
+        )}
+
         {submission.reference_number && (
           <p className="text-[10px] text-muted-foreground">
             Ref:{" "}
@@ -228,6 +263,28 @@ export function PaymentVerificationPanel({
               {submission.reference_number}
             </span>
           </p>
+        )}
+
+        {submission.receipt_url && (
+          <div className="pt-1">
+            <p className="text-[10px] text-muted-foreground font-medium mb-1">Receipt Screenshot:</p>
+            <a
+              href={submission.receipt_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block relative group rounded border border-border/80 overflow-hidden hover:opacity-90 transition-opacity"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={submission.receipt_url}
+                alt="Payment Receipt"
+                className="max-h-24 max-w-[180px] object-contain bg-black/5 dark:bg-white/5 rounded"
+              />
+              <span className="flex items-center gap-1 text-[9px] text-primary hover:underline mt-0.5">
+                <ExternalLink className="size-2.5" /> View full image
+              </span>
+            </a>
+          </div>
         )}
 
         {submission.customer_notes && (
@@ -301,8 +358,9 @@ export function PaymentVerificationPanel({
           </DialogHeader>
 
           <div className="space-y-3 py-1">
-            {/* Cash on delivery warning alert */}
-            {submission.payment_method === "CASH_ON_DELIVERY" && (
+            {/* Cash warning alert */}
+            {(submission.payment_method === "CASH_ON_DELIVERY" ||
+              submission.payment_method === "CASH_ON_PICKUP") && (
               <Alert className="border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-200">
                 <AlertCircle className="size-4 text-amber-600 dark:text-amber-400 shrink-0" />
                 <AlertDescription className="text-xs">
@@ -319,12 +377,51 @@ export function PaymentVerificationPanel({
                   {CUSTOMER_PAYMENT_METHOD_LABELS[submission.payment_method]}
                 </span>
               </div>
+              {submission.bank_name && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Bank Name:</span>
+                  <span className="font-medium text-foreground">{submission.bank_name}</span>
+                </div>
+              )}
+              {submission.sender_name && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    {submission.payment_method === "GCASH" ? "GCash Account:" : "Sender Name:"}
+                  </span>
+                  <span className="font-medium text-foreground">{submission.sender_name}</span>
+                </div>
+              )}
+              {submission.gcash_number && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">GCash Number:</span>
+                  <span className="font-mono font-medium text-foreground">{submission.gcash_number}</span>
+                </div>
+              )}
+              {submission.payment_date && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Payment Date:</span>
+                  <span className="font-medium text-foreground">{submission.payment_date}</span>
+                </div>
+              )}
               {submission.reference_number && (
                 <div className="flex justify-between gap-2">
                   <span className="text-muted-foreground shrink-0">Ref:</span>
                   <span className="font-mono text-[10px] break-all text-right">
                     {submission.reference_number}
                   </span>
+                </div>
+              )}
+              {submission.receipt_url && (
+                <div className="pt-1 border-t border-border/40">
+                  <div className="text-muted-foreground mb-1">Receipt Screenshot:</div>
+                  <a
+                    href={submission.receipt_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-primary hover:underline text-[11px]"
+                  >
+                    <ExternalLink className="size-3" /> View uploaded proof of payment
+                  </a>
                 </div>
               )}
               {submission.declared_amount !== null && submission.declared_amount !== undefined && (

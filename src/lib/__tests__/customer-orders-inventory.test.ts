@@ -53,9 +53,13 @@ describe("Customer Orders & Inventory Business Rules", () => {
 
   // ── 2. Order Input Validation Schema ───────────────────────────────────────
   describe("2. Order Input Validation Schema", () => {
-    it("accepts a valid customer order submission", () => {
+    it("accepts a valid customer order submission (DELIVERY)", () => {
       const validOrder = {
+        fulfillment_method: "DELIVERY" as const,
+        payment_method: "CASH_ON_DELIVERY" as const,
         requested_date: "2026-10-25",
+        delivery_barangay: "Libertad",
+        delivery_address: "Purok 4, Main Road",
         notes: "Deliver to front gate",
         items: [
           {
@@ -78,7 +82,298 @@ describe("Customer Orders & Inventory Business Rules", () => {
       if (result.success) {
         expect(result.data.items).toHaveLength(2);
         expect(result.data.items[0].package_quantity).toBe(3);
+        expect(result.data.fulfillment_method).toBe("DELIVERY");
+        expect(result.data.payment_method).toBe("CASH_ON_DELIVERY");
       }
+    });
+
+    it("accepts a valid customer order submission (PICKUP with CASH_ON_PICKUP)", () => {
+      const validPickup = {
+        fulfillment_method: "PICKUP" as const,
+        payment_method: "CASH_ON_PICKUP" as const,
+        requested_date: "2026-10-25",
+        pickup_time: "10:00 AM - 12:00 PM",
+        notes: "Will bring crate",
+        items: [
+          {
+            size: "LARGE" as EggSize,
+            packaging: "TRAY_30" as PackagingType,
+            package_quantity: 1,
+            quoted_unit_price: 255.0,
+          },
+        ],
+      };
+
+      const result = submitCustomerOrderSchema.safeParse(validPickup);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.payment_method).toBe("CASH_ON_PICKUP");
+      }
+    });
+
+    it("accepts a valid customer order submission (PICKUP with GCASH and full details)", () => {
+      const validPickupGcash = {
+        fulfillment_method: "PICKUP" as const,
+        payment_method: "GCASH" as const,
+        requested_date: "2026-10-25",
+        pickup_time: "10:00 AM - 12:00 PM",
+        payment_gcash_number: "09171234567",
+        payment_gcash_account_name: "Juan Dela Cruz",
+        payment_reference: "GCASH-998877",
+        payment_date: "2026-10-25",
+        payment_amount: 255.0,
+        notes: "Paid via GCash app",
+        items: [
+          {
+            size: "LARGE" as EggSize,
+            packaging: "TRAY_30" as PackagingType,
+            package_quantity: 1,
+            quoted_unit_price: 255.0,
+          },
+        ],
+      };
+
+      const result = submitCustomerOrderSchema.safeParse(validPickupGcash);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.payment_method).toBe("GCASH");
+        expect(result.data.payment_gcash_number).toBe("09171234567");
+        expect(result.data.payment_gcash_account_name).toBe("Juan Dela Cruz");
+        expect(result.data.payment_reference).toBe("GCASH-998877");
+      }
+    });
+
+    it("accepts a valid customer order submission (GCASH without payment_reference before payment)", () => {
+      const validGcashPrePayment = {
+        fulfillment_method: "DELIVERY" as const,
+        payment_method: "GCASH" as const,
+        requested_date: "2026-10-25",
+        delivery_barangay: "Ampayon",
+        delivery_address: "Block 2 Lot 5",
+        payment_gcash_number: "09189876543",
+        payment_gcash_account_name: "Maria Santos",
+        // payment_reference is omitted (optional)
+        items: [
+          {
+            size: "MEDIUM" as EggSize,
+            packaging: "TRAY_30" as PackagingType,
+            package_quantity: 1,
+            quoted_unit_price: 220.0,
+          },
+        ],
+      };
+
+      const result = submitCustomerOrderSchema.safeParse(validGcashPrePayment);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.payment_method).toBe("GCASH");
+        expect(result.data.payment_gcash_number).toBe("09189876543");
+        expect(result.data.payment_gcash_account_name).toBe("Maria Santos");
+        expect(result.data.payment_reference).toBeUndefined();
+      }
+    });
+
+    it("rejects GCASH order missing payment_gcash_number", () => {
+      const invalidGcash = {
+        fulfillment_method: "PICKUP" as const,
+        payment_method: "GCASH" as const,
+        requested_date: "2026-10-25",
+        pickup_time: "10:00 AM - 12:00 PM",
+        payment_gcash_account_name: "Juan Dela Cruz",
+        items: [
+          {
+            size: "LARGE" as EggSize,
+            packaging: "TRAY_30" as PackagingType,
+            package_quantity: 1,
+            quoted_unit_price: 255.0,
+          },
+        ],
+      };
+
+      const result = submitCustomerOrderSchema.safeParse(invalidGcash);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues.some((i) => i.path.includes("payment_gcash_number"))).toBe(true);
+      }
+    });
+
+    it("rejects GCASH order with invalid GCash number format", () => {
+      const invalidGcashNum = {
+        fulfillment_method: "PICKUP" as const,
+        payment_method: "GCASH" as const,
+        requested_date: "2026-10-25",
+        pickup_time: "10:00 AM - 12:00 PM",
+        payment_gcash_number: "12345",
+        payment_gcash_account_name: "Juan Dela Cruz",
+        items: [
+          {
+            size: "LARGE" as EggSize,
+            packaging: "TRAY_30" as PackagingType,
+            package_quantity: 1,
+            quoted_unit_price: 255.0,
+          },
+        ],
+      };
+
+      const result = submitCustomerOrderSchema.safeParse(invalidGcashNum);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues.some((i) => i.path.includes("payment_gcash_number"))).toBe(true);
+      }
+    });
+
+    it("rejects GCASH order missing payment_gcash_account_name", () => {
+      const invalidGcashName = {
+        fulfillment_method: "PICKUP" as const,
+        payment_method: "GCASH" as const,
+        requested_date: "2026-10-25",
+        pickup_time: "10:00 AM - 12:00 PM",
+        payment_gcash_number: "09171234567",
+        payment_gcash_account_name: "",
+        items: [
+          {
+            size: "LARGE" as EggSize,
+            packaging: "TRAY_30" as PackagingType,
+            package_quantity: 1,
+            quoted_unit_price: 255.0,
+          },
+        ],
+      };
+
+      const result = submitCustomerOrderSchema.safeParse(invalidGcashName);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues.some((i) => i.path.includes("payment_gcash_account_name"))).toBe(true);
+      }
+    });
+
+    it("accepts a valid customer order submission (BANK_TRANSFER)", () => {
+      const validBank = {
+        fulfillment_method: "DELIVERY" as const,
+        payment_method: "BANK_TRANSFER" as const,
+        requested_date: "2026-10-25",
+        delivery_barangay: "Ampayon",
+        delivery_address: "Block 2 Lot 5",
+        payment_bank_name: "BDO",
+        payment_sender_name: "Juan Dela Cruz",
+        payment_reference: "BT-112233",
+        payment_date: "2026-10-25",
+        payment_amount: 65.0,
+        items: [
+          {
+            size: "SMALL" as EggSize,
+            packaging: "PIECE" as PackagingType,
+            package_quantity: 10,
+            quoted_unit_price: 6.5,
+          },
+        ],
+      };
+
+      const result = submitCustomerOrderSchema.safeParse(validBank);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.payment_method).toBe("BANK_TRANSFER");
+        expect(result.data.payment_bank_name).toBe("BDO");
+      }
+    });
+
+    it("rejects DELIVERY orders with CASH_ON_PICKUP", () => {
+      const invalidDelivery = {
+        fulfillment_method: "DELIVERY" as const,
+        payment_method: "CASH_ON_PICKUP" as const,
+        requested_date: "2026-10-25",
+        delivery_barangay: "Ampayon",
+        delivery_address: "Block 2 Lot 5",
+        items: [
+          {
+            size: "SMALL" as EggSize,
+            packaging: "PIECE" as PackagingType,
+            package_quantity: 10,
+            quoted_unit_price: 6.5,
+          },
+        ],
+      };
+
+      const result = submitCustomerOrderSchema.safeParse(invalidDelivery);
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects PICKUP orders with CASH_ON_DELIVERY", () => {
+      const invalidPickup = {
+        fulfillment_method: "PICKUP" as const,
+        payment_method: "CASH_ON_DELIVERY" as const,
+        requested_date: "2026-10-25",
+        pickup_time: "10:00 AM - 12:00 PM",
+        items: [
+          {
+            size: "LARGE" as EggSize,
+            packaging: "TRAY_30" as PackagingType,
+            package_quantity: 1,
+            quoted_unit_price: 255.0,
+          },
+        ],
+      };
+
+      const result = submitCustomerOrderSchema.safeParse(invalidPickup);
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects orders missing payment_method", () => {
+      const missingPayment = {
+        fulfillment_method: "DELIVERY" as const,
+        requested_date: "2026-10-25",
+        delivery_barangay: "Libertad",
+        delivery_address: "Purok 4",
+        items: [
+          {
+            size: "LARGE" as EggSize,
+            packaging: "TRAY_30" as PackagingType,
+            package_quantity: 1,
+            quoted_unit_price: 255.0,
+          },
+        ],
+      };
+
+      const result = submitCustomerOrderSchema.safeParse(missingPayment);
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects DELIVERY orders missing barangay or address", () => {
+      const missingAddress = {
+        fulfillment_method: "DELIVERY" as const,
+        payment_method: "CASH_ON_DELIVERY" as const,
+        requested_date: "2026-10-25",
+        delivery_barangay: "",
+        delivery_address: "",
+        items: [
+          {
+            size: "LARGE" as EggSize,
+            packaging: "TRAY_30" as PackagingType,
+            package_quantity: 1,
+            quoted_unit_price: 255.0,
+          },
+        ],
+      };
+      const result = submitCustomerOrderSchema.safeParse(missingAddress);
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects PICKUP orders missing pickup_time", () => {
+      const missingTime = {
+        fulfillment_method: "PICKUP" as const,
+        payment_method: "CASH_ON_DELIVERY" as const,
+        requested_date: "2026-10-25",
+        items: [
+          {
+            size: "LARGE" as EggSize,
+            packaging: "TRAY_30" as PackagingType,
+            package_quantity: 1,
+            quoted_unit_price: 255.0,
+          },
+        ],
+      };
+      const result = submitCustomerOrderSchema.safeParse(missingTime);
+      expect(result.success).toBe(false);
     });
 
     it("rejects orders with empty items array", () => {

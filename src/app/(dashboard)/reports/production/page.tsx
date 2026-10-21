@@ -1,141 +1,89 @@
 import { Suspense } from "react";
 import { getProductionReport } from "@/actions/reports";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, Activity, Egg, Skull } from "lucide-react";
+import { Egg } from "lucide-react";
+import { EggProductionReportView } from "@/components/reports/egg-production-report-view";
+import { getCurrentUserProfile } from "@/lib/user-profile";
+
+export const metadata = {
+  title: "Production & Flocks Report — POULTRY HUB",
+  description: "Egg collection logs, quality metrics, periodic aggregation, and administrative exports.",
+};
 
 export default async function ProductionReportPage() {
+  const profile = await getCurrentUserProfile();
+  const isAdmin = profile?.role === "ADMIN";
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Production & Flocks</h1>
-        <p className="text-muted-foreground mt-2">
-          Detailed metrics on egg production, laying rates, and flock health.
-        </p>
-      </div>
+    <div className="space-y-8">
+      {/* ── Main Egg Production Reporting & Export Suite ── */}
+      <EggProductionReportView isAdmin={isAdmin} />
 
-      <Suspense fallback={<div className="h-64 flex items-center justify-center">Loading...</div>}>
-        <ProductionContent />
-      </Suspense>
+      {/* ── Additional Flock Health & Batch Performance Breakdown ── */}
+      <div className="border-t pt-8">
+        <h3 className="text-xl font-bold tracking-tight mb-2">Flock Laying & Mortality Overview</h3>
+        <p className="text-xs text-muted-foreground mb-4">
+          Historical batch laying performance and mortality trends across active laying hens.
+        </p>
+
+        <Suspense fallback={<div className="h-32 flex items-center justify-center text-xs text-muted-foreground">Loading flock statistics...</div>}>
+          <FlockPerformanceSection />
+        </Suspense>
+      </div>
     </div>
   );
 }
 
-async function ProductionContent() {
-  // Last 30 days
+async function FlockPerformanceSection() {
   const end = new Date();
   const start = new Date();
   start.setDate(end.getDate() - 30);
-  
-  const startDate = start.toISOString().split('T')[0];
-  const endDate = end.toISOString().split('T')[0];
+
+  const startDate = start.toISOString().split("T")[0];
+  const endDate = end.toISOString().split("T")[0];
 
   const result = await getProductionReport(startDate, endDate);
 
-  if (!result.success) {
+  if (!result.success || !result.data) {
     return (
-      <Card className="border-destructive">
-        <CardContent className="pt-6 text-center text-destructive">
-          <AlertTriangle className="w-10 h-10 mx-auto mb-2 opacity-50" />
-          <p>Failed to load production data.</p>
-          <p className="text-sm opacity-70">{result.error}</p>
+      <Card className="border-border/60 bg-muted/20">
+        <CardContent className="py-6 text-center text-xs text-muted-foreground">
+          No additional flock statistics available for this period.
         </CardContent>
       </Card>
     );
   }
 
-  if (!result.data) return null;
-
   const { data } = result;
 
   return (
-    <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex justify-between">
-              Total Eggs
-              <Egg className="h-4 w-4 text-muted-foreground" />
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {data.flocks.map((f, i) => (
+        <Card key={i} className="border-border/60 shadow-xs">
+          <CardHeader className="pb-2 p-4">
+            <CardTitle className="text-sm font-bold flex items-center justify-between">
+              <span>{f.flockIdentifier}</span>
+              <Egg className="size-4 text-muted-foreground" />
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{data.summary.totalEggs.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-1">Last 30 days</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex justify-between">
-              Laying Rate
-              <Activity className="h-4 w-4 text-muted-foreground" />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${data.summary.estimatedLayingRate >= 80 ? 'text-green-600' : 'text-amber-600'}`}>
-              {data.summary.estimatedLayingRate.toFixed(1)}%
+          <CardContent className="p-4 pt-1 text-xs space-y-2">
+            <div className="flex justify-between items-center py-1 border-b border-border/40">
+              <span className="text-muted-foreground">30-Day Eggs Produced:</span>
+              <span className="font-semibold">{f.totalEggs.toLocaleString()}</span>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Overall average</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex justify-between">
-              Damage Rate
-              <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${data.summary.damageRejectRate > 5 ? 'text-red-600' : 'text-green-600'}`}>
-              {data.summary.damageRejectRate.toFixed(2)}%
+            <div className="flex justify-between items-center py-1 border-b border-border/40">
+              <span className="text-muted-foreground">Damage/Reject Rate:</span>
+              <span className={`font-semibold ${f.damageRate > 5 ? "text-rose-600 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400"}`}>
+                {f.damageRate.toFixed(2)}%
+              </span>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              ({(data.summary.damagedEggs + data.summary.crackedEggs).toLocaleString()} eggs)
-            </p>
+            <div className="flex justify-between items-center py-1">
+              <span className="text-muted-foreground">Mortality / Culls:</span>
+              <span className="font-semibold">{f.mortality.toLocaleString()} birds</span>
+            </div>
           </CardContent>
         </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex justify-between">
-              Total Mortality
-              <Skull className="h-4 w-4 text-muted-foreground" />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">{data.summary.totalMortality.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-1">Last 30 days</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <h2 className="text-xl font-semibold mt-8 mb-4 border-b pb-2">Flock Performance</h2>
-      <div className="grid gap-4 md:grid-cols-2">
-        {data.flocks.map((f, i) => (
-          <Card key={i}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg">{f.flockIdentifier}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex justify-between items-center py-1 border-b">
-                <span className="text-muted-foreground">Eggs Produced:</span>
-                <span className="font-medium">{f.totalEggs.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between items-center py-1 border-b">
-                <span className="text-muted-foreground">Damage Rate:</span>
-                <span className={`font-medium ${f.damageRate > 5 ? 'text-red-600' : ''}`}>
-                  {f.damageRate.toFixed(2)}%
-                </span>
-              </div>
-              <div className="flex justify-between items-center py-1">
-                <span className="text-muted-foreground">Mortality:</span>
-                <span className="font-medium">{f.mortality.toLocaleString()} birds</span>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      ))}
     </div>
   );
 }

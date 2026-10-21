@@ -25,6 +25,9 @@ export type EggSize =
  */
 export type PackagingType = "PIECE" | "TRAY_30" | "CARTON_12" | "BOX_360";
 
+/** Customer egg shell type choice: WHITE ("White Egg") or BROWN ("Brown Egg") */
+export type EggType = "WHITE" | "BROWN";
+
 /** Flock operational lifecycle status — must match the PostgreSQL flock_status enum */
 export type FlockStatus = "ACTIVE" | "RETIRED" | "QUARANTINED";
 
@@ -60,6 +63,13 @@ export type CustomerOrderStatus =
   | "COMPLETED"
   | "CANCELLED";
 
+/**
+ * Fulfillment method for customer orders — matches fulfillment_method PostgreSQL enum (Migration 019).
+ * DELIVERY: customer receives order at their address.
+ * PICKUP: customer picks up from the farm.
+ */
+export type FulfillmentMethod = "DELIVERY" | "PICKUP";
+
 /** Customer payment methods supported by POULTRY HUB */
 export type PaymentMethod = "CASH" | "BANK_TRANSFER" | "CHECK" | "E_WALLET";
 
@@ -71,7 +81,8 @@ export type PaymentMethod = "CASH" | "BANK_TRANSFER" | "CHECK" | "E_WALLET";
 export type CustomerPaymentMethod =
   | "GCASH"           // GCash: customer provides reference number
   | "BANK_TRANSFER"   // Bank transfer: customer provides bank reference
-  | "CASH_ON_DELIVERY"; // Pay on delivery/pickup: no upfront proof
+  | "CASH_ON_DELIVERY" // Pay on delivery: cash payment upon delivery
+  | "CASH_ON_PICKUP";  // Pay on pickup: cash payment upon counter pickup
 
 /**
  * Payment submission lifecycle status (Migration 015).
@@ -88,7 +99,7 @@ export type CustomerPaymentStatus =
   | "REJECTED"
   | "REFUNDED";
 
-/** Customer payment submission record (Migration 015) */
+/** Customer payment submission record (Migration 015 & 021) */
 export interface CustomerPaymentSubmission {
   id: string;
   order_id: string;
@@ -98,10 +109,32 @@ export interface CustomerPaymentSubmission {
   reference_number: string | null;
   customer_notes: string | null;
   declared_amount: number | null;
+  payment_date?: string | null;
+  bank_name?: string | null;
+  sender_name?: string | null;
+  gcash_number?: string | null;
+  receipt_url?: string | null;
+  bank_transfer_account_id?: string | null;
+  bank_transfer_account?: BankTransferAccountView | null;
   verified_by: string | null;
   verified_at: string | null;
   verification_notes: string | null;
   rejection_reason: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Admin-managed bank receiving account view (Migration 025) */
+export interface BankTransferAccountView {
+  id: string;
+  bank_name: string;
+  account_holder_name: string;
+  account_number: string;
+  instructions: string | null;
+  is_active: boolean;
+  display_order: number;
+  created_by?: string | null;
+  updated_by?: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -14,8 +14,10 @@ import {
   PackageCheck,
   AlertCircle,
   Truck,
+  Store,
   CreditCard,
   ChevronRight,
+  MapPin,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,7 +32,7 @@ import {
 } from "@/components/ui/table";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { EGG_SIZE_LABELS, PACKAGING_LABELS, DEFAULT_CURRENCY_SYMBOL } from "@/lib/constants";
-import type { CustomerOrderStatus, CustomerPaymentSubmission } from "@/types";
+import type { CustomerOrderStatus, CustomerPaymentSubmission, FulfillmentMethod } from "@/types";
 import type { CustomerOrderView } from "@/actions/customer-orders";
 import { cancelMyOrder } from "@/actions/customer-orders";
 import { getPaymentForOrder } from "@/actions/customer-payments";
@@ -105,6 +107,49 @@ function OrderStatusBadge({ status }: { status: CustomerOrderStatus }) {
   );
 }
 
+function FulfillmentBadge({
+  method,
+  barangay,
+  address,
+  pickupTime,
+}: {
+  method: FulfillmentMethod | null;
+  barangay?: string | null;
+  address?: string | null;
+  pickupTime?: string | null;
+}) {
+  if (!method) return <span className="text-[10px] text-muted-foreground">—</span>;
+
+  if (method === "DELIVERY") {
+    return (
+      <div className="space-y-0.5">
+        <div className="flex items-center gap-1">
+          <Truck className="size-3 text-emerald-600 dark:text-emerald-400" />
+          <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">Delivery</span>
+        </div>
+        {barangay && (
+          <p className="text-[10px] text-muted-foreground flex items-start gap-1">
+            <MapPin className="size-2.5 shrink-0 mt-0.5" />
+            {barangay}{address ? `, ${address}` : ""}
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-0.5">
+      <div className="flex items-center gap-1">
+        <Store className="size-3 text-blue-600 dark:text-blue-400" />
+        <span className="text-[10px] font-semibold text-blue-700 dark:text-blue-400">Pick Up</span>
+      </div>
+      {pickupTime && (
+        <p className="text-[10px] text-muted-foreground">{pickupTime}</p>
+      )}
+    </div>
+  );
+}
+
 function OrderItemsExpandable({ order }: { order: CustomerOrderView }) {
   const [expanded, setExpanded] = React.useState(false);
 
@@ -144,7 +189,12 @@ function OrderItemsExpandable({ order }: { order: CustomerOrderView }) {
               {order.items.map((item) => (
                 <TableRow key={item.id} className="text-[10px]">
                   <TableCell className="py-1.5 font-medium text-foreground">
-                    {EGG_SIZE_LABELS[item.size]}
+                    <div className="flex items-center gap-1.5">
+                      <span>{EGG_SIZE_LABELS[item.size]}</span>
+                      <span className="text-[9px] text-muted-foreground font-normal">
+                        ({(item.egg_type ?? "WHITE") === "BROWN" ? "Brown" : "White"})
+                      </span>
+                    </div>
                   </TableCell>
                   <TableCell className="py-1.5 text-center">
                     <Badge variant="secondary" className="text-[9px]">
@@ -338,6 +388,7 @@ export function CustomerOrdersList({ orders }: CustomerOrdersListProps) {
             <TableHead>Items</TableHead>
             <TableHead className="text-right">Est. Total</TableHead>
             <TableHead>Requested Date</TableHead>
+            <TableHead>Fulfillment</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Payment</TableHead>
             <TableHead />
@@ -368,6 +419,14 @@ export function CustomerOrdersList({ orders }: CustomerOrdersListProps) {
                 {order.requested_date ? formatDate(order.requested_date) : "—"}
               </TableCell>
               <TableCell>
+                <FulfillmentBadge
+                  method={order.fulfillment_method}
+                  barangay={order.delivery_barangay}
+                  address={order.delivery_address}
+                  pickupTime={order.pickup_time}
+                />
+              </TableCell>
+              <TableCell>
                 <div className="space-y-1.5">
                   <OrderStatusBadge status={order.status} />
                   {order.status === "COMPLETED" && order.sale_id && (
@@ -378,10 +437,22 @@ export function CustomerOrdersList({ orders }: CustomerOrdersListProps) {
                 </div>
               </TableCell>
               <TableCell>
-                {/* Payment column: shown lazily when Pay Now is expanded. */}
-                {["PENDING", "CANCELLED", "COMPLETED"].includes(order.status) && (
-                  <span className="text-[10px] text-muted-foreground">—</span>
-                )}
+                {/* Payment column: show checkout payment method and proof status */}
+                <div className="space-y-1">
+                  {order.payment_method ? (
+                    <Badge variant="outline" className="text-[10px] bg-muted/40 font-medium">
+                      {order.payment_method === "CASH_ON_DELIVERY"
+                        ? "COD"
+                        : order.payment_method === "CASH_ON_PICKUP"
+                        ? "COP"
+                        : order.payment_method === "GCASH"
+                        ? "GCash"
+                        : "Bank Transfer"}
+                    </Badge>
+                  ) : (
+                    <span className="text-[10px] text-muted-foreground">—</span>
+                  )}
+                </div>
               </TableCell>
               <TableCell>
                 <CancelOrderButton orderId={order.id} orderStatus={order.status} />

@@ -2,7 +2,7 @@
 
 import { useTransition, useRef } from "react";
 import { toast } from "sonner";
-import { Settings } from "lucide-react";
+import { Settings, Smartphone } from "lucide-react";
 import { type UpdateSettingsInput } from "@/lib/validations/settings";
 import { updateSettings } from "@/actions/settings";
 import { Button } from "@/components/ui/button";
@@ -47,6 +47,8 @@ export function SettingsForm({ initialData }: SettingsFormProps) {
       date_format: formData.get("date_format") as string,
       low_feed_threshold_kg: parseFloat(formData.get("low_feed_threshold_kg") as string) || 0,
       low_egg_inventory_threshold_pieces: parseInt(formData.get("low_egg_inventory_threshold_pieces") as string, 10) || 0,
+      gcash_account_name: (formData.get("gcash_account_name") as string)?.trim() || "",
+      gcash_account_number: (formData.get("gcash_account_number") as string)?.trim() || "",
     };
 
     startTransition(async () => {
@@ -182,6 +184,46 @@ export function SettingsForm({ initialData }: SettingsFormProps) {
                   defaultValue={initialData.low_egg_inventory_threshold_pieces}
                 />
                 <p className="text-xs text-muted-foreground">Egg inventory level below which a low-stock alert is triggered.</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Smartphone className="size-5 text-blue-500" />
+                Official GCash Receiving Account
+              </CardTitle>
+              <CardDescription>
+                Configure the farm&apos;s official GCash receiving details displayed to customers during checkout.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="gcash_account_name">Official GCash Account Name</Label>
+                <Input
+                  id="gcash_account_name"
+                  name="gcash_account_name"
+                  defaultValue={initialData.gcash_account_name}
+                  placeholder="e.g. POULTRY HUB FARM / Juan Dela Cruz"
+                  maxLength={150}
+                />
+                <p className="text-xs text-muted-foreground">
+                  The verified GCash account name registered for the farm.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="gcash_account_number">Official GCash Receiving Number</Label>
+                <Input
+                  id="gcash_account_number"
+                  name="gcash_account_number"
+                  defaultValue={initialData.gcash_account_number}
+                  placeholder="09XXXXXXXXX (11 digits)"
+                  maxLength={25}
+                />
+                <p className="text-xs text-muted-foreground">
+                  The farm&apos;s GCash mobile number where customers will send their payments.
+                </p>
               </div>
             </CardContent>
           </Card>

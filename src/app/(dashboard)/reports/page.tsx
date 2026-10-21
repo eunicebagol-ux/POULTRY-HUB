@@ -4,7 +4,10 @@ import { type ComponentType } from "react";
 import { format } from "date-fns";
 import { getOverviewReport } from "@/actions/reports";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { EggProductionReportView } from "@/components/reports/egg-production-report-view";
 import { DEFAULT_CURRENCY_SYMBOL } from "@/lib/constants";
+import { getCurrentUserProfile } from "@/lib/user-profile";
 
 import {
   BarChart3,
@@ -15,9 +18,14 @@ import {
   DollarSign,
   Calendar,
   AlertTriangle,
-  ArrowRight
+  ArrowRight,
+  Egg,
 } from "lucide-react";
-import { getCurrentUserProfile } from "@/lib/user-profile";
+
+export const metadata = {
+  title: "Reports & Analytics — POULTRY HUB",
+  description: "Comprehensive egg production reporting, daily/weekly/monthly/yearly breakdowns, and administrative exports.",
+};
 
 export default async function ReportsPage() {
   const profile = await getCurrentUserProfile();
@@ -28,54 +36,89 @@ export default async function ReportsPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Reports & Analytics</h1>
         <p className="text-muted-foreground mt-2">
-          High-level metrics and farm performance summary.
+          Production audits, periodic trends, financial performance, and executive exports.
         </p>
       </div>
 
-      <Suspense fallback={<DashboardSkeleton isAdmin={isAdmin} />}>
-        <DashboardContent isAdmin={isAdmin} />
-      </Suspense>
+      <Tabs defaultValue="egg-production" className="w-full space-y-6">
+        <TabsList className="bg-muted p-1 rounded-lg">
+          <TabsTrigger value="egg-production" className="flex items-center gap-2">
+            <Egg className="size-4 text-emerald-600 dark:text-emerald-400" />
+            <span>Egg Production Reports</span>
+          </TabsTrigger>
+          <TabsTrigger value="farm-overview" className="flex items-center gap-2">
+            <BarChart3 className="size-4" />
+            <span>Farm Overview (30 Days)</span>
+          </TabsTrigger>
+        </TabsList>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mt-8">
-        <ReportCard 
-          title="Production & Flocks" 
-          description="Laying rates and mortality trends" 
-          href="/reports/production" 
-          icon={Activity} 
-          color="text-blue-500" 
-        />
-        <ReportCard 
-          title="Feed & Efficiency" 
-          description="Feed consumption and efficiency metrics" 
-          href="/reports/feed" 
-          icon={Package} 
-          color="text-amber-500" 
-        />
-        {isAdmin && (
-          <ReportCard 
-            title="Financial Summary" 
-            description="Revenue, expenses, and net profit" 
-            href="/reports/financials" 
-            icon={DollarSign} 
-            color="text-green-500" 
-          />
-        )}
-        <ReportCard 
-          title="Inventory Valuation" 
-          description="Value of current eggs and feed" 
-          href="/reports/inventory" 
-          icon={BarChart3} 
-          color="text-purple-500" 
-        />
-      </div>
+        {/* Tab 1: Full Egg Production Reporting & Export */}
+        <TabsContent value="egg-production" className="space-y-6">
+          <EggProductionReportView isAdmin={isAdmin} />
+        </TabsContent>
+
+        {/* Tab 2: High Level Farm Overview & Other Reports */}
+        <TabsContent value="farm-overview" className="space-y-6">
+          <Suspense fallback={<DashboardSkeleton isAdmin={isAdmin} />}>
+            <DashboardContent isAdmin={isAdmin} />
+          </Suspense>
+
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mt-8">
+            <ReportCard
+              title="Production & Flocks"
+              description="Laying rates and mortality trends"
+              href="/reports/production"
+              icon={Activity}
+              color="text-blue-500"
+            />
+            <ReportCard
+              title="Feed & Efficiency"
+              description="Feed consumption and efficiency metrics"
+              href="/reports/feed"
+              icon={Package}
+              color="text-amber-500"
+            />
+            {isAdmin && (
+              <ReportCard
+                title="Financial Summary"
+                description="Revenue, expenses, and net profit"
+                href="/reports/financials"
+                icon={DollarSign}
+                color="text-green-500"
+              />
+            )}
+            <ReportCard
+              title="Inventory Valuation"
+              description="Value of current eggs and feed"
+              href="/reports/inventory"
+              icon={BarChart3}
+              color="text-purple-500"
+            />
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
 
-function ReportCard({ title, description, href, icon: Icon, color }: { title: string, description: string, href: string, icon: ComponentType<{ className?: string }>, color: string }) {
+function ReportCard({
+  title,
+  description,
+  href,
+  icon: Icon,
+  color,
+}: {
+  title: string;
+  description: string;
+  href: string;
+  icon: ComponentType<{ className?: string }>;
+  color: string;
+}) {
   return (
     <Card className="hover:shadow-md transition-all group overflow-hidden relative">
-      <div className={`absolute right-[-20px] top-[-20px] opacity-10 group-hover:scale-150 transition-transform duration-500 ease-in-out`}>
+      <div
+        className={`absolute right-[-20px] top-[-20px] opacity-10 group-hover:scale-150 transition-transform duration-500 ease-in-out`}
+      >
         <Icon className={`w-32 h-32 ${color}`} />
       </div>
       <CardHeader className="pb-2">
@@ -84,9 +127,12 @@ function ReportCard({ title, description, href, icon: Icon, color }: { title: st
         <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
-        <Link href={href} className="flex items-center w-full justify-between mt-2 text-sm font-medium hover:bg-primary/5 p-2 rounded-md transition-colors group/link">
-            View Report
-            <ArrowRight className="w-4 h-4 ml-2 group-hover/link:translate-x-1 transition-transform" />
+        <Link
+          href={href}
+          className="flex items-center w-full justify-between mt-2 text-sm font-medium hover:bg-primary/5 p-2 rounded-md transition-colors group/link"
+        >
+          View Report
+          <ArrowRight className="w-4 h-4 ml-2 group-hover/link:translate-x-1 transition-transform" />
         </Link>
       </CardContent>
     </Card>
@@ -94,13 +140,12 @@ function ReportCard({ title, description, href, icon: Icon, color }: { title: st
 }
 
 async function DashboardContent({ isAdmin }: { isAdmin: boolean }) {
-  // Let's get the last 30 days as a default summary
   const end = new Date();
   const start = new Date();
   start.setDate(end.getDate() - 30);
-  
-  const startDate = start.toISOString().split('T')[0];
-  const endDate = end.toISOString().split('T')[0];
+
+  const startDate = start.toISOString().split("T")[0];
+  const endDate = end.toISOString().split("T")[0];
 
   const result = await getOverviewReport(startDate, endDate);
 
@@ -124,7 +169,8 @@ async function DashboardContent({ isAdmin }: { isAdmin: boolean }) {
     <div className="space-y-6">
       <div className="flex items-center text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg inline-flex">
         <Calendar className="w-4 h-4 mr-2" />
-        Summary for the last 30 days ({format(start, 'MMM d, yyyy')} - {format(end, 'MMM d, yyyy')})
+        Summary for the last 30 days ({format(start, "MMM d, yyyy")} -{" "}
+        {format(end, "MMM d, yyyy")})
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -139,7 +185,13 @@ async function DashboardContent({ isAdmin }: { isAdmin: boolean }) {
           value={`${data.estimatedLayingRate.toFixed(1)}%`}
           icon={data.estimatedLayingRate >= 80 ? TrendingUp : TrendingDown}
           description="Overall average"
-          valueColor={data.estimatedLayingRate >= 80 ? "text-green-600" : (data.estimatedLayingRate < 70 ? "text-red-600" : "")}
+          valueColor={
+            data.estimatedLayingRate >= 80
+              ? "text-green-600"
+              : data.estimatedLayingRate < 70
+              ? "text-red-600"
+              : ""
+          }
         />
         <KpiCard
           title="Total Mortality"
@@ -157,25 +209,35 @@ async function DashboardContent({ isAdmin }: { isAdmin: boolean }) {
 
       {isAdmin && (
         <>
-          <h2 className="text-xl font-semibold mt-8 mb-4 border-b pb-2">Financial Overview (Last 30 Days)</h2>
+          <h2 className="text-xl font-semibold mt-8 mb-4 border-b pb-2">
+            Financial Overview (Last 30 Days)
+          </h2>
           <div className="grid gap-4 md:grid-cols-3">
             <KpiCard
               title="Total Revenue"
-              value={`${DEFAULT_CURRENCY_SYMBOL}${(data.totalEggSales || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+              value={`${DEFAULT_CURRENCY_SYMBOL}${(
+                data.totalEggSales || 0
+              ).toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
               icon={TrendingUp}
               valueColor="text-green-600"
             />
             <KpiCard
               title="Recorded Expenses"
-              value={`${DEFAULT_CURRENCY_SYMBOL}${(data.recordedExpenses || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+              value={`${DEFAULT_CURRENCY_SYMBOL}${(
+                data.recordedExpenses || 0
+              ).toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
               icon={TrendingDown}
               valueColor="text-red-600"
             />
             <KpiCard
               title="Net Operating Result"
-              value={`${DEFAULT_CURRENCY_SYMBOL}${(data.netOperatingResult || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+              value={`${DEFAULT_CURRENCY_SYMBOL}${(
+                data.netOperatingResult || 0
+              ).toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
               icon={DollarSign}
-              valueColor={(data.netOperatingResult || 0) >= 0 ? "text-green-600" : "text-red-600"}
+              valueColor={
+                (data.netOperatingResult || 0) >= 0 ? "text-green-600" : "text-red-600"
+              }
             />
           </div>
         </>
@@ -184,21 +246,29 @@ async function DashboardContent({ isAdmin }: { isAdmin: boolean }) {
   );
 }
 
-function KpiCard({ title, value, icon: Icon, description, valueColor = "" }: { title: string, value: string | number, icon: ComponentType<{ className?: string }>, description?: string, valueColor?: string }) {
+function KpiCard({
+  title,
+  value,
+  icon: Icon,
+  description,
+  valueColor = "",
+}: {
+  title: string;
+  value: string | number;
+  icon: ComponentType<{ className?: string }>;
+  description?: string;
+  valueColor?: string;
+}) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">
-          {title}
-        </CardTitle>
+        <CardTitle className="text-sm font-medium">{title}</CardTitle>
         <Icon className="h-4 w-4 text-muted-foreground" />
       </CardHeader>
       <CardContent>
         <div className={`text-2xl font-bold ${valueColor}`}>{value}</div>
         {description && (
-          <p className="text-xs text-muted-foreground mt-1">
-            {description}
-          </p>
+          <p className="text-xs text-muted-foreground mt-1">{description}</p>
         )}
       </CardContent>
     </Card>

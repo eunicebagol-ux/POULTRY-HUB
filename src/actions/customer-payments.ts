@@ -201,7 +201,7 @@ export async function getPaymentForOrder(
     const { data, error } = await supabase
       .from("customer_payment_submissions")
       .select(
-        "id, order_id, customer_id, payment_method, status, reference_number, customer_notes, declared_amount, verified_by, verified_at, verification_notes, rejection_reason, created_at, updated_at"
+        "id, order_id, customer_id, payment_method, status, reference_number, customer_notes, declared_amount, payment_date, bank_name, sender_name, gcash_number, receipt_url, bank_transfer_account_id, verified_by, verified_at, verification_notes, rejection_reason, created_at, updated_at, bank_transfer_account:bank_transfer_accounts (id, bank_name, account_holder_name, account_number, instructions, is_active, display_order, created_at, updated_at)"
       )
       .eq("order_id", orderId)
       .order("created_at", { ascending: false })
@@ -225,6 +225,7 @@ export async function getPaymentForOrder(
             declared_amount: data.declared_amount
               ? Number(data.declared_amount)
               : null,
+            bank_transfer_account: (data as unknown as { bank_transfer_account?: import("@/types").BankTransferAccountView | null }).bank_transfer_account ?? null,
           }
         : null,
     };
@@ -277,6 +278,12 @@ export async function getAllPaymentSubmissions(): Promise<
         reference_number,
         customer_notes,
         declared_amount,
+        payment_date,
+        bank_name,
+        sender_name,
+        gcash_number,
+        receipt_url,
+        bank_transfer_account_id,
         verified_by,
         verified_at,
         verification_notes,
@@ -284,7 +291,8 @@ export async function getAllPaymentSubmissions(): Promise<
         created_at,
         updated_at,
         customer:customers ( name ),
-        order:customer_orders ( created_at )
+        order:customer_orders ( created_at ),
+        bank_transfer_account:bank_transfer_accounts ( id, bank_name, account_holder_name, account_number )
       `
       )
       .order("created_at", { ascending: false })
@@ -306,6 +314,10 @@ export async function getAllPaymentSubmissions(): Promise<
       reference_number: string | null;
       customer_notes: string | null;
       declared_amount: string | number | null;
+      payment_date?: string | null;
+      bank_name?: string | null;
+      sender_name?: string | null;
+      receipt_url?: string | null;
       verified_by: string | null;
       verified_at: string | null;
       verification_notes: string | null;
@@ -327,6 +339,12 @@ export async function getAllPaymentSubmissions(): Promise<
       reference_number: r.reference_number,
       customer_notes: r.customer_notes,
       declared_amount: r.declared_amount != null ? Number(r.declared_amount) : null,
+      payment_date: r.payment_date ?? null,
+      bank_name: r.bank_name ?? null,
+      sender_name: r.sender_name ?? null,
+      receipt_url: r.receipt_url ?? null,
+      bank_transfer_account_id: (r as unknown as { bank_transfer_account_id?: string | null }).bank_transfer_account_id ?? null,
+      bank_transfer_account: (r as unknown as { bank_transfer_account?: import("@/types").BankTransferAccountView | null }).bank_transfer_account ?? null,
       verified_by: r.verified_by,
       verified_at: r.verified_at,
       verification_notes: r.verification_notes,
@@ -513,6 +531,22 @@ export async function submitPaymentSubmission(
       };
     }
 
+    // ── Bank Transfer receiving account validation ──────────────────────────
+    if (payment_method === "BANK_TRANSFER" && parsed.data.bank_transfer_account_id) {
+      const { data: bta, error: btaErr } = await supabase
+        .from("bank_transfer_accounts")
+        .select("id, is_active")
+        .eq("id", parsed.data.bank_transfer_account_id)
+        .maybeSingle();
+
+      if (btaErr || !bta || !bta.is_active) {
+        return {
+          success: false,
+          error: "The selected bank receiving account is currently unavailable. Please choose an active account.",
+        };
+      }
+    }
+
     // ── Insert the payment submission ────────────────────────────────────────
     const adminClient = createAdminClient();
 
@@ -524,6 +558,12 @@ export async function submitPaymentSubmission(
         payment_method,
         status: "SUBMITTED",             // Hardcoded — customer cannot self-verify
         reference_number: reference_number?.trim() || null,
+        payment_date: parsed.data.payment_date || null,
+        bank_name: parsed.data.bank_name?.trim() || null,
+        sender_name: parsed.data.sender_name?.trim() || null,
+        gcash_number: parsed.data.gcash_number?.trim() || null,
+        receipt_url: parsed.data.receipt_url?.trim() || null,
+        bank_transfer_account_id: parsed.data.bank_transfer_account_id || null,
         customer_notes: customer_notes?.trim() || null,
         // declared_amount is informational only; authoritative total is calculated server-side
         declared_amount: declared_amount ?? null,

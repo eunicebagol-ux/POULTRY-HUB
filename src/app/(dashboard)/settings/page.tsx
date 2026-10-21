@@ -6,6 +6,8 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/server";
 import { SettingsForm } from "@/components/settings/settings-form";
+import { BankTransferAccountsPanel } from "@/components/settings/bank-transfer-accounts-panel";
+import { getAllBankTransferAccounts } from "@/actions/bank-transfer-accounts";
 import type { UpdateSettingsInput } from "@/lib/validations/settings";
 
 export default async function SettingsPage() {
@@ -59,6 +61,8 @@ export default async function SettingsPage() {
     date_format: "",
     low_feed_threshold_kg: 0,
     low_egg_inventory_threshold_pieces: 0,
+    gcash_account_name: "",
+    gcash_account_number: "",
   };
 
   settingsData.forEach((setting) => {
@@ -87,12 +91,24 @@ export default async function SettingsPage() {
       case "low_egg_inventory_threshold_pieces":
         initialData.low_egg_inventory_threshold_pieces = setting.setting_value as number;
         break;
+      case "gcash_account_name":
+        initialData.gcash_account_name = (setting.setting_value as string) || "";
+        break;
+      case "gcash_account_number":
+        initialData.gcash_account_number = (setting.setting_value as string) || "";
+        break;
     }
   });
 
+  const bankAccountsRes = await getAllBankTransferAccounts();
+  const initialBankAccounts = bankAccountsRes.success && bankAccountsRes.data ? bankAccountsRes.data : [];
+
   return (
-    <div className="mx-auto max-w-4xl py-6">
+    <div className="mx-auto max-w-4xl py-6 space-y-10">
       <SettingsForm initialData={initialData} />
+      <div className="border-t border-border/60 pt-6">
+        <BankTransferAccountsPanel initialAccounts={initialBankAccounts} />
+      </div>
     </div>
   );
 }

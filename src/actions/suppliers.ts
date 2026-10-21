@@ -21,6 +21,7 @@ export interface SupplierView {
   phone: string | null;
   email: string | null;
   address: string | null;
+  logo_url: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -38,7 +39,7 @@ export async function getSuppliers(): Promise<ActionResult<SupplierView[]>> {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("suppliers")
-      .select("id, name, contact_person, phone, email, address, is_active, created_at, updated_at")
+      .select("id, name, contact_person, phone, email, address, logo_url, is_active, created_at, updated_at")
       .order("name", { ascending: true });
 
     if (error) {
@@ -72,7 +73,7 @@ export async function createSupplier(
     };
   }
 
-  const { name, contact_person, phone, email, address, is_active } = parsed.data;
+  const { name, contact_person, phone, email, address, logo_url, is_active } = parsed.data;
 
   try {
     const supabase = await createClient();
@@ -84,9 +85,10 @@ export async function createSupplier(
         phone: phone?.trim() || null,
         email: email?.trim() || null,
         address: address?.trim() || null,
+        logo_url: logo_url?.trim() || null,
         is_active: is_active ?? true,
       })
-      .select("id, name, contact_person, phone, email, address, is_active, created_at, updated_at")
+      .select("id, name, contact_person, phone, email, address, logo_url, is_active, created_at, updated_at")
       .single();
 
     if (error) {
@@ -130,6 +132,7 @@ export async function updateSupplier(
     phone?: string | null;
     email?: string | null;
     address?: string | null;
+    logo_url?: string | null;
     is_active?: boolean;
     updated_at: string;
   } = {
@@ -145,6 +148,8 @@ export async function updateSupplier(
     updatePayload.email = parsed.data.email?.trim() || null;
   if (parsed.data.address !== undefined)
     updatePayload.address = parsed.data.address?.trim() || null;
+  if (parsed.data.logo_url !== undefined)
+    updatePayload.logo_url = parsed.data.logo_url?.trim() || null;
   if (parsed.data.is_active !== undefined)
     updatePayload.is_active = parsed.data.is_active;
 
@@ -154,7 +159,7 @@ export async function updateSupplier(
       .from("suppliers")
       .update(updatePayload)
       .eq("id", id)
-      .select("id, name, contact_person, phone, email, address, is_active, created_at, updated_at")
+      .select("id, name, contact_person, phone, email, address, logo_url, is_active, created_at, updated_at")
       .single();
 
     if (error) {
@@ -269,3 +274,126 @@ export async function deleteSupplier(id: string): Promise<ActionResult<void>> {
     };
   }
 }
+
+// ─── Logo Storage Actions ─────────────────────────────────────────────────────
+
+const ALLOWED_MIME_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/svg+xml",
+  "image/gif",
+];
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+
+export async function uploadSupplierLogo(
+  formData: FormData
+): Promise<ActionResult<{ url: string }>> {
+  const caller = await getCurrentUserProfile();
+  if (!caller || !caller.is_active) {
+    return { success: false, error: "Unauthorized: active account required." };
+  }
+
+  try {
+    const file = formData.get("file") as File | null;
+    if (!file || !(file instanceof File)) {
+      return { success: false, error: "Please select an image file to upload." };
+    }
+
+    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+      return {
+        success: false,
+        error:
+          "Invalid file format. Allowed formats: PNG, JPEG, WebP, SVG, and GIF.",
+      };
+    }
+
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      return {
+        success: false,
+        error: "File size exceeds the 5MB maximum upload limit.",
+      };
+    }
+
+    // Determine extension
+    const ext =
+      file.name.split(".").pop()?.toLowerCase() ||
+      (file.type === "image/svg+xml"
+        ? "svg"
+        : file.type === "image/webp"
+        ? "webp"
+        : file.type === "image/png"
+        ? "png"
+        : "jpg");
+
+    const sanitizedExt = ["png", "jpg", "jpeg", "webp", "svg", "gif"].includes(ext)
+      ? ext
+      : "png";
+
+    const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    const storagePath = `supplier-${uniqueId}.${sanitizedExt}`;
+
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    const supabase = await createClient();
+    const { error: uploadError } = await supabase.storage
+      .from("supplier-logos")
+      .upload(storagePath, buffer, {
+        contentType: file.type,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      return {
+        success: false,
+        error: `Storage upload failed: ${uploadError.message}`,
+      };
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from("supplier-logos")
+      .getPublicUrl(storagePath);
+
+    return {
+      success: true,
+      data: { url: publicUrlData.publicUrl },
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error:
+        err instanceof Error ? err.message : "Failed to upload supplier logo.",
+    };
+  }
+}
+
+export async function deleteSupplierLogo(
+  logoUrl: string
+): Promise<ActionResult<void>> {
+  const caller = await getCurrentUserProfile();
+  if (!caller || !caller.is_active) {
+    return { success: false, error: "Unauthorized: active account required." };
+  }
+
+  try {
+    // Only delete files hosted in our Supabase supplier-logos bucket
+    if (logoUrl.includes("/supplier-logos/")) {
+      const parts = logoUrl.split("/supplier-logos/");
+      const relativePath = parts[parts.length - 1]?.split("?")[0];
+      if (relativePath) {
+        const supabase = await createClient();
+        await supabase.storage.from("supplier-logos").remove([relativePath]);
+      }
+    }
+
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error:
+        err instanceof Error ? err.message : "Failed to delete supplier logo.",
+    };
+  }
+}
+

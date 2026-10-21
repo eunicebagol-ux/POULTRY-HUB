@@ -18,7 +18,17 @@ import type {
   CustomerOrderStatus,
   ChickenBreed,
   EggShellColor,
+  EggType,
 } from "@/types";
+
+// ─── Egg Types (Shell Color) ──────────────────────────────────────────────────
+
+export const EGG_TYPES: EggType[] = ["WHITE", "BROWN"];
+
+export const EGG_TYPE_LABELS: Record<EggType, string> = {
+  WHITE: "White Egg",
+  BROWN: "Brown Egg",
+};
 
 // ─── Egg Sizes ────────────────────────────────────────────────────────────────
 
@@ -39,6 +49,58 @@ export const EGG_SIZE_LABELS: Record<EggSize, string> = {
   JUMBO: "Jumbo",
   UNGRADED: "Ungraded",
 };
+
+/** White egg tray product images */
+export const EGG_PRODUCT_WHITE_IMAGES: Record<EggSize, string> = {
+  SMALL: "/images/products/egg-tray-white-small.jpg",
+  MEDIUM: "/images/products/egg-tray-white-medium.jpg",
+  LARGE: "/images/products/egg-tray-white-large.jpg",
+  EXTRA_LARGE: "/images/products/egg-tray-white-extra-large.jpg",
+  JUMBO: "/images/products/egg-tray-white-jumbo.jpg",
+  UNGRADED: "/images/products/egg-tray-white-ungraded.jpg",
+};
+
+/** Brown egg tray product images */
+export const EGG_PRODUCT_BROWN_IMAGES: Record<EggSize, string> = {
+  SMALL: "/images/products/egg-tray-brown-small.jpg",
+  MEDIUM: "/images/products/egg-tray-brown-medium.jpg",
+  LARGE: "/images/products/egg-tray-brown-large.jpg",
+  EXTRA_LARGE: "/images/products/egg-tray-brown-extra-large.jpg",
+  JUMBO: "/images/products/egg-tray-brown-jumbo.jpg",
+  UNGRADED: "/images/products/egg-tray-brown-ungraded.jpg",
+};
+
+/** Combined image resolver by size and egg type */
+export const EGG_PRODUCT_IMAGES_BY_TYPE: Record<EggType, Record<EggSize, string>> = {
+  WHITE: EGG_PRODUCT_WHITE_IMAGES,
+  BROWN: EGG_PRODUCT_BROWN_IMAGES,
+};
+
+/** Backward-compatible default product images (points to default white egg tray) */
+export const EGG_PRODUCT_IMAGES: Record<EggSize, string> = EGG_PRODUCT_WHITE_IMAGES;
+
+/** Backward-compatible accessible alt texts */
+export const EGG_PRODUCT_ALT_TEXTS: Record<EggSize, string> = {
+  SMALL: "Fresh small white eggs neatly arranged in a 30-egg tray",
+  MEDIUM: "Fresh medium white eggs neatly arranged in a 30-egg tray",
+  LARGE: "Fresh large white eggs neatly arranged in a 30-egg tray",
+  EXTRA_LARGE: "Fresh extra-large white eggs neatly arranged in a 30-egg tray",
+  JUMBO: "Fresh jumbo white eggs neatly arranged in a 30-egg tray",
+  UNGRADED: "Fresh ungraded white eggs neatly arranged in a 30-egg tray",
+};
+
+/** Resolves the correct product image URL based on egg size and selected egg type */
+export function getEggProductImage(size: EggSize, eggType: EggType = "WHITE"): string {
+  const map = EGG_PRODUCT_IMAGES_BY_TYPE[eggType] ?? EGG_PRODUCT_WHITE_IMAGES;
+  return map[size] ?? EGG_PRODUCT_WHITE_IMAGES[size] ?? "/images/products/egg-tray-white-small.jpg";
+}
+
+/** Resolves accessible alt text based on egg size and selected egg type */
+export function getEggProductAltText(size: EggSize, eggType: EggType = "WHITE"): string {
+  const typeLabel = eggType === "BROWN" ? "brown" : "white";
+  const sizeLabel = EGG_SIZE_LABELS[size] ?? size;
+  return `Fresh ${sizeLabel.toLowerCase()} ${typeLabel} eggs neatly arranged in a 30-egg tray`;
+}
 
 // ─── Packaging Types ─────────────────────────────────────────────────────────
 
@@ -219,24 +281,40 @@ export const ALLOWED_STATUS_TRANSITIONS: Record<
 
 
 export const CUSTOMER_PAYMENT_METHODS: CustomerPaymentMethod[] = [
+  "CASH_ON_DELIVERY",
+  "CASH_ON_PICKUP",
   "GCASH",
   "BANK_TRANSFER",
+];
+
+export const DELIVERY_PAYMENT_METHODS: CustomerPaymentMethod[] = [
   "CASH_ON_DELIVERY",
+  "GCASH",
+  "BANK_TRANSFER",
+];
+
+export const PICKUP_PAYMENT_METHODS: CustomerPaymentMethod[] = [
+  "CASH_ON_PICKUP",
+  "GCASH",
+  "BANK_TRANSFER",
 ];
 
 export const CUSTOMER_PAYMENT_METHOD_LABELS: Record<CustomerPaymentMethod, string> = {
-  GCASH: "GCash (Demo)",
-  BANK_TRANSFER: "Bank Transfer (Demo)",
-  CASH_ON_DELIVERY: "Pay on Delivery / Pickup",
+  CASH_ON_DELIVERY: "Cash on Delivery",
+  CASH_ON_PICKUP: "Cash on Pick Up",
+  GCASH: "GCash",
+  BANK_TRANSFER: "Bank Transfer",
 };
 
 export const CUSTOMER_PAYMENT_METHOD_DESCRIPTIONS: Record<CustomerPaymentMethod, string> = {
-  GCASH:
-    "Send payment via GCash to our registered number. Provide your GCash transaction reference number as proof.",
-  BANK_TRANSFER:
-    "Transfer to our bank account and provide the bank transaction reference number for verification.",
   CASH_ON_DELIVERY:
-    "Pay in cash when your order is delivered or when you pick it up from the farm. No upfront proof needed.",
+    "Pay in cash upon receiving your delivery. Please prepare the exact amount.",
+  CASH_ON_PICKUP:
+    "Pay in cash at the farm counter when picking up your eggs.",
+  GCASH:
+    "Transfer payment to our official GCash account and provide your transaction reference number and receipt.",
+  BANK_TRANSFER:
+    "Transfer to our official bank account and provide the transaction reference number and receipt.",
 };
 
 export const CUSTOMER_PAYMENT_STATUS_LABELS: Record<CustomerPaymentStatus, string> = {
@@ -246,12 +324,3 @@ export const CUSTOMER_PAYMENT_STATUS_LABELS: Record<CustomerPaymentStatus, strin
   REJECTED: "Payment Rejected",
   REFUNDED: "Refunded",
 };
-
-// Demo GCash details — NOT real credentials
-export const DEMO_GCASH_NUMBER = "0917-XXX-XXXX (Demo Only)";
-export const DEMO_GCASH_NAME = "Poultry Hub Farm (Demo)";
-
-// Demo bank account — NOT real credentials
-export const DEMO_BANK_NAME = "BDO Unibank (Demo)";
-export const DEMO_BANK_ACCOUNT_NAME = "Poultry Hub Farm (Demo)";
-export const DEMO_BANK_ACCOUNT_NUMBER = "0000-0000-0000 (Demo Only)";

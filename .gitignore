@@ -23,6 +23,8 @@
 # misc
 .DS_Store
 *.pem
+*_backup.json
+customer_orders_pre_migration_backup.json
 
 # debug
 npm-debug.log*

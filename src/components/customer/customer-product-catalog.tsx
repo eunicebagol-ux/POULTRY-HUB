@@ -12,13 +12,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import Image from "next/image";
 import {
   EGG_SIZE_LABELS,
   PACKAGING_LABELS,
   PACKAGING_MULTIPLIERS,
   DEFAULT_CURRENCY_SYMBOL,
+  getEggProductImage,
+  getEggProductAltText,
 } from "@/lib/constants";
-import type { EggSize, PackagingType } from "@/types";
+import type { EggSize, PackagingType, EggType } from "@/types";
 import type { EggPriceCatalogEntry } from "@/actions/customer-orders";
 
 interface CartItem {
@@ -26,6 +29,7 @@ interface CartItem {
   packaging: PackagingType;
   package_quantity: number;
   quoted_unit_price: number;
+  egg_type?: EggType;
 }
 
 interface ProductCatalogProps {
@@ -74,23 +78,35 @@ export function CustomerProductCatalog({
     Object.fromEntries(availableItems.map((e) => [e.size, "TRAY_30" as PackagingType]))
   );
 
+  // Selected egg type (shell color) per size — defaults to "WHITE"
+  const [selectedEggType, setSelectedEggType] = React.useState<
+    Record<string, EggType>
+  >(() =>
+    Object.fromEntries(availableItems.map((e) => [e.size, "WHITE" as EggType]))
+  );
+
   const [quantities, setQuantities] = React.useState<Record<string, number>>(
     () => Object.fromEntries(availableItems.map((e) => [e.size, 1]))
   );
 
   const cartMap = React.useMemo(() => {
     const map = new Map<string, CartItem>();
-    cart.forEach((item) => map.set(`${item.size}:${item.packaging}`, item));
+    cart.forEach((item) =>
+      map.set(`${item.size}:${item.packaging}:${item.egg_type ?? "WHITE"}`, item)
+    );
     return map;
   }, [cart]);
 
   const handleAddToCart = (entry: EggPriceCatalogEntry) => {
     const packaging = selectedPackaging[entry.size] || "TRAY_30";
+    const eggType = selectedEggType[entry.size] || "WHITE";
     const qty = quantities[entry.size] || 1;
     const price = getEffectivePrice(entry, packaging);
-    const key = `${entry.size}:${packaging}`;
+    const key = `${entry.size}:${packaging}:${eggType}`;
 
-    const existingCart = cart.filter((c) => `${c.size}:${c.packaging}` !== key);
+    const existingCart = cart.filter(
+      (c) => `${c.size}:${c.packaging}:${c.egg_type ?? "WHITE"}` !== key
+    );
     onCartChange([
       ...existingCart,
       {
@@ -98,12 +114,26 @@ export function CustomerProductCatalog({
         packaging,
         package_quantity: qty,
         quoted_unit_price: price,
+        egg_type: eggType,
       },
     ]);
   };
 
-  const handleRemoveFromCart = (size: EggSize, packaging: PackagingType) => {
-    onCartChange(cart.filter((c) => !(c.size === size && c.packaging === packaging)));
+  const handleRemoveFromCart = (
+    size: EggSize,
+    packaging: PackagingType,
+    eggType: EggType = "WHITE"
+  ) => {
+    onCartChange(
+      cart.filter(
+        (c) =>
+          !(
+            c.size === size &&
+            c.packaging === packaging &&
+            (c.egg_type ?? "WHITE") === eggType
+          )
+      )
+    );
   };
 
   const handleQuantityChange = (size: string, delta: number) => {
@@ -134,9 +164,10 @@ export function CustomerProductCatalog({
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {availableItems.map((entry) => {
         const packaging = selectedPackaging[entry.size] || "TRAY_30";
+        const eggType = selectedEggType[entry.size] || "WHITE";
         const price = getEffectivePrice(entry, packaging);
         const qty = quantities[entry.size] || 1;
-        const cartKey = `${entry.size}:${packaging}`;
+        const cartKey = `${entry.size}:${packaging}:${eggType}`;
         const inCart = cartMap.has(cartKey);
         const cartItem = cartMap.get(cartKey);
         const pieces = qty * PACKAGING_MULTIPLIERS[packaging];
@@ -149,16 +180,31 @@ export function CustomerProductCatalog({
             : `${stockPieces.toLocaleString()} pcs available`;
         const isLowStock = stockPieces > 0 && stockPieces < 30;
 
+        const imageSrc = getEggProductImage(entry.size, eggType);
+        const imageAlt = getEggProductAltText(entry.size, eggType);
+
         return (
           <Card
             key={entry.size}
-            className={`border transition-all duration-200 hover:shadow-md ${
+            className={`group/card border transition-all duration-200 hover:shadow-md pt-0 gap-0 overflow-hidden ${
               inCart
                 ? "border-emerald-500/50 bg-emerald-500/5 dark:bg-emerald-500/10 shadow-md"
-                : "border-border/60"
+                : "border-border/60 bg-card"
             }`}
           >
-            <CardHeader className="pb-2 pt-4 px-4">
+            {/* Egg Tray Product Image */}
+            <div className="relative w-full aspect-[4/3] bg-white dark:bg-muted/15 border-b border-border/50 flex items-center justify-center p-3 overflow-hidden">
+              <Image
+                src={imageSrc}
+                alt={imageAlt}
+                fill
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                className="object-contain p-1.5 transition-transform duration-300 group-hover/card:scale-105"
+                priority={entry.display_order <= 3}
+              />
+            </div>
+
+            <CardHeader className="pb-2 pt-3 px-4">
               <div className="flex items-start justify-between">
                 <div>
                   <CardTitle className="text-sm font-bold text-foreground">
@@ -218,6 +264,34 @@ export function CustomerProductCatalog({
                   {stockLabel}
                 </span>
                 <Info className="size-3 text-muted-foreground/50" />
+              </div>
+
+              {/* Egg Type selector */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                  Egg Type
+                </label>
+                <Select
+                  value={eggType}
+                  onValueChange={(val) =>
+                    setSelectedEggType((prev) => ({
+                      ...prev,
+                      [entry.size]: val as EggType,
+                    }))
+                  }
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="WHITE" className="text-xs">
+                      White Egg
+                    </SelectItem>
+                    <SelectItem value="BROWN" className="text-xs">
+                      Brown Egg
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Packaging selector */}
@@ -303,7 +377,13 @@ export function CustomerProductCatalog({
                     variant="outline"
                     size="icon"
                     className="size-8 text-destructive hover:bg-destructive/10 shrink-0"
-                    onClick={() => handleRemoveFromCart(entry.size, cartItem!.packaging)}
+                    onClick={() =>
+                      handleRemoveFromCart(
+                        entry.size,
+                        cartItem!.packaging,
+                        cartItem!.egg_type ?? "WHITE"
+                      )
+                    }
                     aria-label="Remove from cart"
                   >
                     <Trash2 className="size-3.5" />

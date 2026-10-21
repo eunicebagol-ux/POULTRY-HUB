@@ -7,6 +7,8 @@ import {
   CheckCircle2,
   Package,
   Truck,
+  Store,
+  MapPin,
   XCircle,
   AlertCircle,
   ChevronDown,
@@ -53,8 +55,9 @@ import {
   PACKAGING_LABELS,
   DEFAULT_CURRENCY_SYMBOL,
   ALLOWED_STATUS_TRANSITIONS,
+  CUSTOMER_PAYMENT_METHOD_LABELS,
 } from "@/lib/constants";
-import type { CustomerOrderStatus, CustomerPaymentSubmission } from "@/types";
+import type { CustomerOrderStatus, CustomerPaymentSubmission, FulfillmentMethod, CustomerPaymentMethod } from "@/types";
 import type { CustomerOrderItemView } from "@/actions/customer-orders";
 import { updateOrderStatus, fulfillCustomerOrder } from "@/actions/customer-orders";
 import { PaymentVerificationPanel } from "@/components/customer-orders/payment-verification-panel";
@@ -73,6 +76,11 @@ export interface OrderRowData {
   items: CustomerOrderItemView[];
   estimated_total: number;
   customer_name: string;
+  fulfillment_method?: FulfillmentMethod | null;
+  payment_method?: CustomerPaymentMethod | null;
+  delivery_barangay?: string | null;
+  delivery_address?: string | null;
+  pickup_time?: string | null;
 }
 
 interface OrderManagementTableProps {
@@ -410,6 +418,7 @@ export function OrderManagementTable({ initialOrders }: OrderManagementTableProp
                     <TableHead>Customer</TableHead>
                     <TableHead>Submitted</TableHead>
                     <TableHead>Requested Date</TableHead>
+                    <TableHead>Fulfillment</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Est. Total</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -455,6 +464,40 @@ export function OrderManagementTable({ initialOrders }: OrderManagementTableProp
                             {order.requested_date ? formatDate(order.requested_date) : "—"}
                           </TableCell>
                           <TableCell>
+                            {order.fulfillment_method === "DELIVERY" ? (
+                              <div className="space-y-0.5">
+                                <Badge variant="outline" className="text-[10px] bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20">
+                                  <Truck className="size-3 mr-1 text-blue-600 dark:text-blue-400" />
+                                  Delivery
+                                </Badge>
+                                {order.delivery_barangay && (
+                                  <p
+                                    className="text-[10px] text-muted-foreground truncate max-w-[140px] flex items-center gap-0.5"
+                                    title={`${order.delivery_barangay}${order.delivery_address ? ` - ${order.delivery_address}` : ""}`}
+                                  >
+                                    <MapPin className="size-2.5 shrink-0" />
+                                    {order.delivery_barangay}
+                                  </p>
+                                )}
+                              </div>
+                            ) : order.fulfillment_method === "PICKUP" ? (
+                              <div className="space-y-0.5">
+                                <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20">
+                                  <Store className="size-3 mr-1 text-emerald-600 dark:text-emerald-400" />
+                                  Pick Up
+                                </Badge>
+                                {order.pickup_time && (
+                                  <p className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                                    <Clock className="size-2.5 shrink-0" />
+                                    {order.pickup_time}
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
                             <Badge variant="outline" className={`text-[10px] ${cfg.className}`}>
                               {cfg.icon}
                               {cfg.label}
@@ -491,7 +534,7 @@ export function OrderManagementTable({ initialOrders }: OrderManagementTableProp
                         {/* Expandable item details row */}
                         {isExpanded && (
                           <TableRow className="bg-muted/20 border-b">
-                            <TableCell colSpan={8} className="p-4 space-y-3">
+                            <TableCell colSpan={9} className="p-4 space-y-3">
                               <div className="bg-background rounded-lg border p-3 space-y-3">
                                 <div className="flex items-center justify-between border-b pb-2">
                                   <span className="text-xs font-semibold text-foreground">
@@ -509,7 +552,12 @@ export function OrderManagementTable({ initialOrders }: OrderManagementTableProp
                                       className="rounded-md border bg-muted/30 p-2.5 text-xs space-y-1"
                                     >
                                       <div className="flex items-center justify-between font-semibold">
-                                        <span>{EGG_SIZE_LABELS[item.size]} Egg</span>
+                                        <div className="flex items-center gap-1.5">
+                                          <span>{EGG_SIZE_LABELS[item.size]} Egg</span>
+                                          <span className="text-[10px] font-normal text-muted-foreground">
+                                            ({(item.egg_type ?? "WHITE") === "BROWN" ? "Brown" : "White"})
+                                          </span>
+                                        </div>
                                         <span className="text-emerald-600 dark:text-emerald-400">
                                           {formatCurrency(item.estimated_line_total)}
                                         </span>
@@ -524,6 +572,56 @@ export function OrderManagementTable({ initialOrders }: OrderManagementTableProp
                                     </div>
                                   ))}
                                 </div>
+
+                                {order.fulfillment_method && (
+                                  <div className="rounded-md border p-2.5 bg-muted/20 text-xs space-y-1">
+                                    <div className="flex items-center gap-1.5 font-semibold text-foreground">
+                                      {order.fulfillment_method === "DELIVERY" ? (
+                                        <>
+                                          <Truck className="size-3.5 text-blue-600 dark:text-blue-400" />
+                                          <span>Delivery Details</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Store className="size-3.5 text-emerald-600 dark:text-emerald-400" />
+                                          <span>Pick Up Details</span>
+                                        </>
+                                      )}
+                                    </div>
+                                    {order.fulfillment_method === "DELIVERY" ? (
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-muted-foreground pt-1">
+                                        <div>
+                                          <span className="font-medium text-foreground">Barangay: </span>
+                                          {order.delivery_barangay || "—"}
+                                        </div>
+                                        <div>
+                                          <span className="font-medium text-foreground">Specific Address: </span>
+                                          {order.delivery_address || "—"}
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <div className="text-[11px] text-muted-foreground pt-1 space-y-1">
+                                        <div>
+                                          <span className="font-medium text-foreground">Preferred Pickup Time: </span>
+                                          {order.pickup_time || "—"}
+                                        </div>
+                                        <p className="text-[10px] text-amber-600 dark:text-amber-400 italic">
+                                          * Customer was notified that preferred pickup time is subject to staff confirmation.
+                                        </p>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
+                                {order.payment_method && (
+                                  <div className="rounded-md border p-2.5 bg-muted/20 text-xs flex items-center justify-between">
+                                    <span className="font-medium text-muted-foreground">Checkout Payment Method:</span>
+                                    <Badge variant="outline" className="text-[11px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 flex items-center gap-1.5">
+                                      <CreditCard className="size-3" />
+                                      {CUSTOMER_PAYMENT_METHOD_LABELS[order.payment_method] || order.payment_method}
+                                    </Badge>
+                                  </div>
+                                )}
 
                                 {order.notes && (
                                   <div className="rounded-md bg-amber-500/10 border border-amber-500/20 p-2 text-xs">

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120" width="160" height="120">
+  <rect width="160" height="120" rx="20" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2"/>
+  <!-- SM Logo Top -->
+  <rect x="18" y="14" width="124" height="52" rx="12" fill="#0038A8"/>
+  <g fill="#FFFFFF">
+    <!-- S -->
+    <path d="M52 26 C52 22 49 20 44 20 C38 20 35 23 35 27 C35 34 52 32 52 44 C52 51 46 55 39 55 C32 55 27 51 27 45 L34 45 C34 48 37 50 40 50 C43 50 45 48 45 45 C45 37 28 39 28 28 C28 20 34 16 43 16 C51 16 58 20 58 26 Z"/>
+    <!-- M -->
+    <path d="M62 17 L71 17 L78 40 L85 17 L94 17 L94 54 L86 54 L86 28 L80 47 L76 47 L70 28 L70 54 L62 54 Z"/>
+  </g>
+  <!-- Supermarket Ribbon Green -->
+  <rect x="18" y="72" width="124" height="34" rx="8" fill="#00843D"/>
+  <text x="80" y="94" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="12" fill="#FFFFFF" text-anchor="middle" letter-spacing="1.5">SUPERMARKET</text>
+</svg>

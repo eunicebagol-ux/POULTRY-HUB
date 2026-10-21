@@ -15,9 +15,10 @@
 import { z } from "zod";
 
 export const CUSTOMER_PAYMENT_METHOD_VALUES = [
+  "CASH_ON_DELIVERY",
+  "CASH_ON_PICKUP",
   "GCASH",
   "BANK_TRANSFER",
-  "CASH_ON_DELIVERY",
 ] as const;
 
 export const CUSTOMER_PAYMENT_STATUS_VALUES = [
@@ -48,6 +49,40 @@ export const submitPaymentSubmissionSchema = z
       .max(200, "Reference number must be at most 200 characters.")
       .optional()
       .or(z.literal("")),
+    payment_date: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Payment date must be in YYYY-MM-DD format.")
+      .optional()
+      .or(z.literal("")),
+    bank_name: z
+      .string()
+      .trim()
+      .max(100, "Bank name must be at most 100 characters.")
+      .optional()
+      .or(z.literal("")),
+    sender_name: z
+      .string()
+      .trim()
+      .max(150, "Sender name must be at most 150 characters.")
+      .optional()
+      .or(z.literal("")),
+    gcash_number: z
+      .string()
+      .trim()
+      .max(25, "GCash number must be at most 25 characters.")
+      .optional()
+      .or(z.literal("")),
+    receipt_url: z
+      .string()
+      .trim()
+      .optional()
+      .or(z.literal("")),
+    bank_transfer_account_id: z
+      .string()
+      .uuid("Invalid receiving bank account ID.")
+      .optional()
+      .nullable()
+      .or(z.literal("")),
     customer_notes: z
       .string()
       .trim()
@@ -57,10 +92,9 @@ export const submitPaymentSubmissionSchema = z
   })
   .refine(
     (data) => {
-      // GCash and Bank Transfer require a reference number
+      // Bank Transfer requires a reference number
       if (
-        (data.payment_method === "GCASH" ||
-          data.payment_method === "BANK_TRANSFER") &&
+        data.payment_method === "BANK_TRANSFER" &&
         !data.reference_number?.trim()
       ) {
         return false;
@@ -69,8 +103,40 @@ export const submitPaymentSubmissionSchema = z
     },
     {
       message:
-        "A transaction reference number is required for GCash and Bank Transfer payments.",
+        "A transaction reference number is required for Bank Transfer payments.",
       path: ["reference_number"],
+    }
+  )
+  .refine(
+    (data) => {
+      // Bank Transfer requires sender bank name
+      if (
+        data.payment_method === "BANK_TRANSFER" &&
+        (!data.bank_name || data.bank_name.trim().length < 2)
+      ) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: "Sender bank name is required for Bank Transfer payments.",
+      path: ["bank_name"],
+    }
+  )
+  .refine(
+    (data) => {
+      // Bank Transfer requires sender account holder name
+      if (
+        data.payment_method === "BANK_TRANSFER" &&
+        (!data.sender_name || data.sender_name.trim().length < 2)
+      ) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: "Sender account holder name is required for Bank Transfer payments.",
+      path: ["sender_name"],
     }
   );
 

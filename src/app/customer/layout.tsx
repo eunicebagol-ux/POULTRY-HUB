@@ -1,7 +1,7 @@
 import * as React from "react";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { UserButton, SignOutButton } from "@clerk/nextjs";
+import { UserButton, SignOutButton, ClerkLoaded, ClerkLoading } from "@clerk/nextjs";
 import { Egg, ShieldCheck } from "lucide-react";
 import { getCurrentUserProfile } from "@/lib/user-profile";
 import { getCustomerDisplayName } from "@/actions/customer-portal";
@@ -97,13 +97,18 @@ export default async function CustomerLayout({
               </div>
             </div>
             <div className="ring-1 ring-border rounded-full p-0.5 bg-background shadow-xs">
-              <UserButton
-                appearance={{
-                  elements: {
-                    avatarBox: "size-8 rounded-full ring-2 ring-emerald-600/30",
-                  },
-                }}
-              />
+              <ClerkLoading>
+                <div className="h-8 w-8 rounded-full bg-muted animate-pulse" />
+              </ClerkLoading>
+              <ClerkLoaded>
+                <UserButton
+                  appearance={{
+                    elements: {
+                      avatarBox: "size-8 rounded-full ring-2 ring-emerald-600/30",
+                    },
+                  }}
+                />
+              </ClerkLoaded>
             </div>
           </div>
         </div>

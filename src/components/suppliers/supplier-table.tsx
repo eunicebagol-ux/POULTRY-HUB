@@ -3,7 +3,7 @@
 import * as React from "react";
 import {
   Search,
-  Truck,
+  Building2,
   Pencil,
   Power,
   Trash2,
@@ -13,6 +13,8 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
+import { SupplierLogoAvatar } from "./supplier-logo-avatar";
+import { resolveSupplierLogo } from "@/lib/supplier-logos";
 import {
   Table,
   TableBody,
@@ -226,7 +228,7 @@ export function SupplierTable({ suppliers, isAdmin }: SupplierTableProps) {
                   >
                     {suppliers.length === 0 ? (
                       <div className="flex flex-col items-center justify-center gap-2">
-                        <Truck className="size-8 text-muted-foreground/50" />
+                        <Building2 className="size-8 text-muted-foreground/50" />
                         <p className="font-medium text-sm text-foreground">
                           No suppliers registered yet
                         </p>
@@ -250,6 +252,7 @@ export function SupplierTable({ suppliers, isAdmin }: SupplierTableProps) {
               ) : (
                 filteredSuppliers.map((supplier) => {
                   const isToggling = togglingId === supplier.id;
+                  const resolved = resolveSupplierLogo(supplier);
 
                   return (
                     <TableRow
@@ -258,27 +261,32 @@ export function SupplierTable({ suppliers, isAdmin }: SupplierTableProps) {
                         !supplier.is_active ? "opacity-60 bg-muted/10" : ""
                       }`}
                     >
-                      {/* Name */}
+                      {/* Name & Logo Avatar */}
                       <TableCell className="font-medium py-3">
-                        <div className="flex items-center gap-2">
-                          <div
-                            className={`p-1.5 rounded-md ${
-                              supplier.is_active
-                                ? "bg-primary/10 text-primary"
-                                : "bg-muted text-muted-foreground"
-                            }`}
-                          >
-                            <Truck className="size-3.5" />
-                          </div>
-                          <div>
-                            <span className="font-semibold text-sm">
-                              {supplier.name}
-                            </span>
-                            {!supplier.is_active && (
-                              <span className="ml-2 text-[10px] text-muted-foreground font-normal">
-                                (Inactive)
+                        <div className="flex items-center gap-3">
+                          <SupplierLogoAvatar
+                            supplier={supplier}
+                            size="md"
+                            showStatusBadge
+                          />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-semibold text-sm">
+                                {supplier.name}
                               </span>
-                            )}
+                              {!supplier.is_active && (
+                                <span className="text-[10px] text-muted-foreground font-normal">
+                                  (Inactive)
+                                </span>
+                              )}
+                            </div>
+                            {resolved.brandName &&
+                              resolved.brandName.toLowerCase() !==
+                                supplier.name.toLowerCase() && (
+                                <p className="text-[10px] text-muted-foreground truncate">
+                                  {resolved.brandName}
+                                </p>
+                              )}
                           </div>
                         </div>
                       </TableCell>

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120" width="160" height="120">
+  <rect width="160" height="120" rx="20" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2"/>
+  <!-- SM Logo Top -->
+  <rect x="18" y="14" width="124" height="46" rx="10" fill="#0038A8"/>
+  <g fill="#FFFFFF">
+    <!-- S -->
+    <path d="M52 24 C52 20 49 18 44 18 C38 18 35 21 35 25 C35 32 52 30 52 42 C52 49 46 53 39 53 C32 53 27 49 27 43 L34 43 C34 46 37 48 40 48 C43 48 45 46 45 43 C45 35 28 37 28 26 C28 18 34 14 43 14 C51 14 58 18 58 24 Z"/>
+    <!-- M -->
+    <path d="M62 15 L71 15 L78 37 L85 15 L94 15 L94 51 L86 51 L86 26 L80 44 L76 44 L70 26 L70 51 L62 51 Z"/>
+  </g>
+  <!-- Savemore Market Ribbon (Savemore signature yellow & green) -->
+  <rect x="18" y="66" width="124" height="40" rx="8" fill="#FFC20E"/>
+  <text x="80" y="86" font-family="'Arial Black', Impact, system-ui, sans-serif" font-weight="900" font-size="12" fill="#00843D" text-anchor="middle" letter-spacing="1">SAVEMORE</text>
+  <text x="80" y="99" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="8.5" fill="#0038A8" text-anchor="middle" letter-spacing="1.5">MARKET</text>
+</svg>

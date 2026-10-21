@@ -25,13 +25,15 @@ export type CustomerOrderStatus =
 export type CustomerPaymentMethod =
   | "GCASH"
   | "BANK_TRANSFER"
-  | "CASH_ON_DELIVERY";
+  | "CASH_ON_DELIVERY"
+  | "CASH_ON_PICKUP";
 export type CustomerPaymentStatus =
   | "PENDING_SUBMISSION"
   | "SUBMITTED"
   | "VERIFIED"
   | "REJECTED"
   | "REFUNDED";
+export type FulfillmentMethod = "DELIVERY" | "PICKUP";
 
 export interface Database {
   public: {
@@ -538,6 +540,7 @@ export interface Database {
           phone: string | null;
           email: string | null;
           address: string | null;
+          logo_url: string | null;
           is_active: boolean;
           created_at: string;
           updated_at: string;
@@ -549,6 +552,7 @@ export interface Database {
           phone?: string | null;
           email?: string | null;
           address?: string | null;
+          logo_url?: string | null;
           is_active?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -560,6 +564,7 @@ export interface Database {
           phone?: string | null;
           email?: string | null;
           address?: string | null;
+          logo_url?: string | null;
           is_active?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -853,7 +858,12 @@ export interface Database {
           id: string;
           customer_id: string;
           status: CustomerOrderStatus;
+          fulfillment_method: FulfillmentMethod | null;
+          payment_method: CustomerPaymentMethod | null;
           requested_date: string | null;
+          delivery_barangay: string | null;
+          delivery_address: string | null;
+          pickup_time: string | null;
           sale_id: string | null;
           notes: string | null;
           admin_notes: string | null;
@@ -865,7 +875,12 @@ export interface Database {
           id?: string;
           customer_id: string;
           status?: CustomerOrderStatus;
+          fulfillment_method?: FulfillmentMethod | null;
+          payment_method?: CustomerPaymentMethod | null;
           requested_date?: string | null;
+          delivery_barangay?: string | null;
+          delivery_address?: string | null;
+          pickup_time?: string | null;
           sale_id?: string | null;
           notes?: string | null;
           admin_notes?: string | null;
@@ -877,7 +892,12 @@ export interface Database {
           id?: string;
           customer_id?: string;
           status?: CustomerOrderStatus;
+          fulfillment_method?: FulfillmentMethod | null;
+          payment_method?: CustomerPaymentMethod | null;
           requested_date?: string | null;
+          delivery_barangay?: string | null;
+          delivery_address?: string | null;
+          pickup_time?: string | null;
           sale_id?: string | null;
           notes?: string | null;
           admin_notes?: string | null;
@@ -911,6 +931,7 @@ export interface Database {
           package_quantity: number;
           requested_pieces: number;
           quoted_unit_price: number;
+          egg_type?: string | null;
           created_at: string;
         };
         Insert: {
@@ -921,6 +942,7 @@ export interface Database {
           package_quantity: number;
           requested_pieces: number;
           quoted_unit_price: number;
+          egg_type?: string | null;
           created_at?: string;
         };
         Update: {
@@ -931,6 +953,7 @@ export interface Database {
           package_quantity?: number;
           requested_pieces?: number;
           quoted_unit_price?: number;
+          egg_type?: string | null;
           created_at?: string;
         };
         Relationships: [
@@ -992,6 +1015,12 @@ export interface Database {
           reference_number: string | null;
           customer_notes: string | null;
           declared_amount: number | null;
+          payment_date: string | null;
+          bank_name: string | null;
+          sender_name: string | null;
+          gcash_number: string | null;
+          receipt_url: string | null;
+          bank_transfer_account_id: string | null;
           verified_by: string | null;
           verified_at: string | null;
           verification_notes: string | null;
@@ -1008,6 +1037,12 @@ export interface Database {
           reference_number?: string | null;
           customer_notes?: string | null;
           declared_amount?: number | null;
+          payment_date?: string | null;
+          bank_name?: string | null;
+          sender_name?: string | null;
+          gcash_number?: string | null;
+          receipt_url?: string | null;
+          bank_transfer_account_id?: string | null;
           verified_by?: string | null;
           verified_at?: string | null;
           verification_notes?: string | null;
@@ -1024,6 +1059,12 @@ export interface Database {
           reference_number?: string | null;
           customer_notes?: string | null;
           declared_amount?: number | null;
+          payment_date?: string | null;
+          bank_name?: string | null;
+          sender_name?: string | null;
+          gcash_number?: string | null;
+          receipt_url?: string | null;
+          bank_transfer_account_id?: string | null;
           verified_by?: string | null;
           verified_at?: string | null;
           verification_notes?: string | null;
@@ -1051,6 +1092,121 @@ export interface Database {
             columns: ["verified_by"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "customer_payment_submissions_bank_transfer_account_id_fkey";
+            columns: ["bank_transfer_account_id"];
+            isOneToOne: false;
+            referencedRelation: "bank_transfer_accounts";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      bank_transfer_accounts: {
+        Row: {
+          id: string;
+          bank_name: string;
+          account_holder_name: string;
+          account_number: string;
+          instructions: string | null;
+          is_active: boolean;
+          display_order: number;
+          created_by: string | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          bank_name: string;
+          account_holder_name: string;
+          account_number: string;
+          instructions?: string | null;
+          is_active?: boolean;
+          display_order?: number;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          bank_name?: string;
+          account_holder_name?: string;
+          account_number?: string;
+          instructions?: string | null;
+          is_active?: boolean;
+          display_order?: number;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "bank_transfer_accounts_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "bank_transfer_accounts_updated_by_fkey";
+            columns: ["updated_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      customer_order_notifications: {
+        Row: {
+          id: string;
+          order_id: string;
+          customer_id: string;
+          status: CustomerOrderStatus;
+          title: string;
+          message: string;
+          is_dismissed: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          order_id: string;
+          customer_id: string;
+          status: CustomerOrderStatus;
+          title: string;
+          message: string;
+          is_dismissed?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          order_id?: string;
+          customer_id?: string;
+          status?: CustomerOrderStatus;
+          title?: string;
+          message?: string;
+          is_dismissed?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "customer_order_notifications_order_id_fkey";
+            columns: ["order_id"];
+            isOneToOne: false;
+            referencedRelation: "customer_orders";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "customer_order_notifications_customer_id_fkey";
+            columns: ["customer_id"];
+            isOneToOne: false;
+            referencedRelation: "customers";
             referencedColumns: ["id"];
           }
         ];
@@ -1155,6 +1311,7 @@ export interface Database {
       customer_order_status: CustomerOrderStatus;
       customer_payment_method: CustomerPaymentMethod;
       customer_payment_status: CustomerPaymentStatus;
+      fulfillment_method: FulfillmentMethod;
     };
   };
 }

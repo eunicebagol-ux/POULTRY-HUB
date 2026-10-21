@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120" width="160" height="120">
+  <rect width="160" height="120" rx="20" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2"/>
+  <g transform="translate(18, 18)">
+    <!-- Stylized Robinsons R with Leaf Emblem -->
+    <rect width="42" height="42" rx="10" fill="#00823B"/>
+    <!-- Leaf/Sprout atop R -->
+    <path d="M21 8 C25 8 30 13 30 18 C25 18 21 13 21 8 Z" fill="#8DC63F"/>
+    <path d="M21 8 C17 8 12 13 12 18 C17 18 21 13 21 8 Z" fill="#71B02F"/>
+    <!-- Stylized R inside emblem -->
+    <path d="M15 17 L25 17 C28 17 31 19 31 23 C31 26 29 28 26 29 L32 37 L26 37 L21 30 L19 30 L19 37 L15 37 Z M19 21 L19 27 L24 27 C26 27 27 26 27 24 C27 22 26 21 24 21 Z" fill="#FFFFFF"/>
+    <!-- Brand Wordmark -->
+    <text x="50" y="27" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="14" fill="#00823B" letter-spacing="0.5">ROBINSONS</text>
+    <text x="50" y="38" font-family="system-ui, -apple-system, sans-serif" font-weight="600" font-size="8.5" fill="#64748B" letter-spacing="1">SUPERMARKET</text>
+    <!-- Tagline pill -->
+    <rect x="0" y="52" width="124" height="24" rx="6" fill="#F0FDF4"/>
+    <text x="62" y="68" font-family="system-ui, -apple-system, sans-serif" font-weight="700" font-size="9" fill="#00823B" text-anchor="middle" letter-spacing="1">BUTUAN CITY</text>
+  </g>
+</svg>

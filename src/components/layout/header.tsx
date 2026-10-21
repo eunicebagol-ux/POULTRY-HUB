@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { UserButton } from "@clerk/nextjs";
+import { UserButton, ClerkLoaded, ClerkLoading } from "@clerk/nextjs";
 import { Menu, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-provider";
@@ -70,13 +70,18 @@ export function Header({ userRole, userName, onOpenMobileNav }: HeaderProps) {
 
         <div className="flex items-center gap-3 pl-2 border-l border-border/60">
           <ThemeToggle />
-          <UserButton
-            appearance={{
-              elements: {
-                avatarBox: "size-9 rounded-full ring-2 ring-emerald-600/30",
-              },
-            }}
-          />
+          <ClerkLoading>
+            <div className="h-8 w-8 rounded-full bg-muted animate-pulse" />
+          </ClerkLoading>
+          <ClerkLoaded>
+            <UserButton
+              appearance={{
+                elements: {
+                  avatarBox: "size-9 rounded-full ring-2 ring-emerald-600/30",
+                },
+              }}
+            />
+          </ClerkLoaded>
         </div>
       </div>
     </header>

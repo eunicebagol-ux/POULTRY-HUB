@@ -29,6 +29,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { currentUser } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
+import { recordCustomerOrderNotification } from "@/actions/customer-order-notifications";
 import { PACKAGING_MULTIPLIERS, ALLOWED_STATUS_TRANSITIONS } from "@/lib/constants";
 import {
   submitCustomerOrderSchema,
@@ -38,7 +39,14 @@ import {
   type CancelCustomerOrderInput,
   type UpdateOrderStatusInput,
 } from "@/lib/validations/customer-orders";
-import type { CustomerOrderStatus, EggSize, PackagingType } from "@/types";
+import type {
+  CustomerOrderStatus,
+  EggSize,
+  PackagingType,
+  FulfillmentMethod,
+  CustomerPaymentMethod,
+  EggType,
+} from "@/types";
 
 export type ActionResult<T = void> =
   | { success: true; data?: T }
@@ -54,12 +62,18 @@ export interface CustomerOrderItemView {
   requested_pieces: number;
   quoted_unit_price: number;
   estimated_line_total: number;
+  egg_type?: EggType;
 }
 
 export interface CustomerOrderView {
   id: string;
   status: CustomerOrderStatus;
+  fulfillment_method: FulfillmentMethod | null;
+  payment_method: CustomerPaymentMethod | null;
   requested_date: string | null;
+  delivery_barangay: string | null;
+  delivery_address: string | null;
+  pickup_time: string | null;
   sale_id: string | null;
   notes: string | null;
   created_at: string;
@@ -90,7 +104,7 @@ export interface EggPriceCatalogEntry {
  *
  * SECURITY: This is the ONLY way customer_id is obtained in order mutations.
  */
-async function resolveCustomerRecord(
+export async function resolveCustomerRecord(
   callerId: string
 ): Promise<{ id: string; is_active: boolean } | null> {
   const adminClient = createAdminClient();
@@ -301,7 +315,12 @@ export async function getMyOrders(): Promise<ActionResult<CustomerOrderView[]>> 
         `
         id,
         status,
+        fulfillment_method,
+        payment_method,
         requested_date,
+        delivery_barangay,
+        delivery_address,
+        pickup_time,
         sale_id,
         notes,
         created_at,
@@ -312,7 +331,8 @@ export async function getMyOrders(): Promise<ActionResult<CustomerOrderView[]>> 
           packaging,
           package_quantity,
           requested_pieces,
-          quoted_unit_price
+          quoted_unit_price,
+          egg_type
         )
       `
       )
@@ -341,11 +361,18 @@ export async function getMyOrders(): Promise<ActionResult<CustomerOrderView[]>> 
       package_quantity: number;
       requested_pieces: number;
       quoted_unit_price: number;
+      egg_type?: string | null;
     }
+
     interface RawOrder {
       id: string;
       status: string;
+      fulfillment_method: string | null;
+      payment_method: string | null;
       requested_date: string | null;
+      delivery_barangay: string | null;
+      delivery_address: string | null;
+      pickup_time: string | null;
       sale_id: string | null;
       notes: string | null;
       created_at: string;
@@ -366,6 +393,7 @@ export async function getMyOrders(): Promise<ActionResult<CustomerOrderView[]>> 
               requested_pieces: item.requested_pieces,
               quoted_unit_price: unitPrice,
               estimated_line_total: item.package_quantity * unitPrice,
+              egg_type: (item.egg_type as EggType) || "WHITE",
             };
           }
         );
@@ -378,7 +406,12 @@ export async function getMyOrders(): Promise<ActionResult<CustomerOrderView[]>> 
         return {
           id: order.id,
           status: order.status as CustomerOrderStatus,
+          fulfillment_method: order.fulfillment_method as FulfillmentMethod | null,
+          payment_method: order.payment_method as CustomerPaymentMethod | null,
           requested_date: order.requested_date,
+          delivery_barangay: order.delivery_barangay,
+          delivery_address: order.delivery_address,
+          pickup_time: order.pickup_time,
           sale_id: order.sale_id,
           notes: order.notes,
           created_at: order.created_at,
@@ -422,7 +455,12 @@ export async function getAllOrders(
         `
         id,
         status,
+        fulfillment_method,
+        payment_method,
         requested_date,
+        delivery_barangay,
+        delivery_address,
+        pickup_time,
         sale_id,
         notes,
         admin_notes,
@@ -436,7 +474,8 @@ export async function getAllOrders(
           packaging,
           package_quantity,
           requested_pieces,
-          quoted_unit_price
+          quoted_unit_price,
+          egg_type
         )
       `
       )
@@ -462,11 +501,18 @@ export async function getAllOrders(
       package_quantity: number;
       requested_pieces: number;
       quoted_unit_price: number;
+      egg_type?: string | null;
     }
+
     interface RawOrderWithCustomer {
       id: string;
       status: string;
+      fulfillment_method: string | null;
+      payment_method: string | null;
       requested_date: string | null;
+      delivery_barangay: string | null;
+      delivery_address: string | null;
+      pickup_time: string | null;
       sale_id: string | null;
       notes: string | null;
       admin_notes?: string | null;
@@ -490,6 +536,7 @@ export async function getAllOrders(
               requested_pieces: item.requested_pieces,
               quoted_unit_price: unitPrice,
               estimated_line_total: item.package_quantity * unitPrice,
+              egg_type: (item.egg_type as EggType) || "WHITE",
             };
           }
         );
@@ -497,9 +544,16 @@ export async function getAllOrders(
         return {
           id: order.id,
           status: order.status as CustomerOrderStatus,
+          fulfillment_method: order.fulfillment_method as FulfillmentMethod | null,
+          payment_method: order.payment_method as CustomerPaymentMethod | null,
           requested_date: order.requested_date,
+          delivery_barangay: order.delivery_barangay,
+          delivery_address: order.delivery_address,
+          pickup_time: order.pickup_time,
           sale_id: order.sale_id,
           notes: order.notes,
+          admin_notes: order.admin_notes,
+          cancellation_reason: order.cancellation_reason,
           created_at: order.created_at,
           updated_at: order.updated_at,
           items,
@@ -557,7 +611,16 @@ export async function submitCustomerOrder(
     };
   }
 
-  const { requested_date, notes, items } = parsed.data;
+  const {
+    fulfillment_method,
+    payment_method,
+    requested_date,
+    notes,
+    items,
+    delivery_barangay,
+    delivery_address,
+    pickup_time,
+  } = parsed.data;
 
   // Resolve server-side customer record — never trust client
   const customerRecord = await resolveCustomerRecord(caller.id);
@@ -740,31 +803,39 @@ export async function submitCustomerOrder(
       }
     }
 
-    // ── Validate no duplicate size+packaging combos ───────────────────────────
+    // ── Validate no duplicate size+packaging+egg_type combos ─────────────────
     const itemKeys = new Set<string>();
     for (const item of items) {
-      const key = `${item.size}:${item.packaging}`;
+      const eggType = item.egg_type ?? "WHITE";
+      const key = `${item.size}:${item.packaging}:${eggType}`;
       if (itemKeys.has(key)) {
         return {
           success: false,
-          error: `Duplicate item: ${item.size} / ${item.packaging}. Combine them into a single line.`,
+          error: `Duplicate item: ${item.size} / ${item.packaging} (${eggType === "BROWN" ? "Brown Egg" : "White Egg"}). Combine them into a single line.`,
         };
       }
       itemKeys.add(key);
     }
 
     // ── Insert order header ──────────────────────────────────────────────────
+    const orderPayload = {
+      customer_id: customerRecord.id,              // Server-resolved, never client
+      status: "PENDING" as const,                   // Hardcoded — RLS enforces this too
+      fulfillment_method: fulfillment_method,       // DELIVERY or PICKUP
+      payment_method: payment_method,               // CASH_ON_DELIVERY, GCASH, or BANK_TRANSFER
+      requested_date: requested_date || null,
+      delivery_barangay: fulfillment_method === "DELIVERY" ? (delivery_barangay?.trim() || null) : null,
+      delivery_address: fulfillment_method === "DELIVERY" ? (delivery_address?.trim() || null) : null,
+      pickup_time: fulfillment_method === "PICKUP" ? (pickup_time?.trim() || null) : null,
+      notes: notes?.trim() || null,
+      sale_id: null,                                // Set only by STAFF/ADMIN at fulfillment
+      admin_notes: null,                            // Set only by STAFF/ADMIN
+      cancellation_reason: null,                    // Set only on cancellation
+    };
+
     const { data: orderData, error: orderError } = await supabase
       .from("customer_orders")
-      .insert({
-        customer_id: customerRecord.id,     // Server-resolved, never client
-        status: "PENDING",                   // Hardcoded — RLS enforces this too
-        requested_date: requested_date || null,
-        notes: notes?.trim() || null,
-        sale_id: null,                        // Set only by STAFF/ADMIN at fulfillment
-        admin_notes: null,                    // Set only by STAFF/ADMIN
-        cancellation_reason: null,            // Set only on cancellation
-      })
+      .insert(orderPayload)
       .select("id")
       .single();
 
@@ -783,6 +854,7 @@ export async function submitCustomerOrder(
       requested_pieces:
         item.package_quantity * PACKAGING_MULTIPLIERS[item.packaging],
       quoted_unit_price: item.quoted_unit_price,
+      egg_type: item.egg_type ?? "WHITE",
     }));
 
     const { error: itemsError } = await supabase
@@ -793,6 +865,48 @@ export async function submitCustomerOrder(
       // Attempt to clean up orphaned order header (best effort)
       await supabase.from("customer_orders").delete().eq("id", orderId);
       return { success: false, error: itemsError.message };
+    }
+
+    // ── Create payment submission for GCASH / BANK_TRANSFER ───────────────────
+    if (payment_method === "GCASH" || payment_method === "BANK_TRANSFER") {
+      try {
+        const adminClient = createAdminClient();
+        await adminClient.from("customer_payment_submissions").insert({
+          order_id: orderId,
+          customer_id: customerRecord.id,
+          payment_method,
+          status: "SUBMITTED",
+          reference_number: parsed.data.payment_reference?.trim() || null,
+          declared_amount: parsed.data.payment_amount ?? null,
+          payment_date: parsed.data.payment_date || new Date().toISOString().split("T")[0],
+          bank_name:
+            payment_method === "BANK_TRANSFER"
+              ? parsed.data.payment_bank_name?.trim() || null
+              : null,
+          sender_name:
+            payment_method === "GCASH"
+              ? parsed.data.payment_gcash_account_name?.trim() || null
+              : payment_method === "BANK_TRANSFER"
+              ? parsed.data.payment_sender_name?.trim() || null
+              : null,
+          gcash_number:
+            payment_method === "GCASH"
+              ? parsed.data.payment_gcash_number?.trim() || null
+              : null,
+          receipt_url: parsed.data.payment_receipt_url?.trim() || null,
+          bank_transfer_account_id:
+            payment_method === "BANK_TRANSFER"
+              ? parsed.data.payment_bank_transfer_account_id || null
+              : null,
+          customer_notes: parsed.data.payment_notes?.trim() || null,
+          verified_by: null,
+          verified_at: null,
+          verification_notes: null,
+          rejection_reason: null,
+        });
+      } catch (paySubErr) {
+        console.warn("Could not insert customer_payment_submission:", paySubErr);
+      }
     }
 
     // ── Audit log (best effort via admin client) ──────────────────────────────
@@ -806,7 +920,10 @@ export async function submitCustomerOrder(
         metadata: {
           customer_id: customerRecord.id,
           item_count: items.length,
+          fulfillment_method,
+          payment_method,
           requested_date: requested_date || null,
+          delivery_barangay: delivery_barangay || null,
           status: "PENDING",
         },
       });
@@ -814,6 +931,13 @@ export async function submitCustomerOrder(
       console.warn("Could not write CUSTOMER_ORDER_SUBMITTED audit log:", auditErr);
     }
 
+    await recordCustomerOrderNotification({
+      orderId,
+      customerId: customerRecord.id,
+      status: "PENDING",
+    });
+
+    revalidatePath("/customer/order");
     revalidatePath("/customer/orders");
     revalidatePath("/customer/dashboard");
 
@@ -932,6 +1056,13 @@ export async function cancelMyOrder(
       console.warn("Could not write CUSTOMER_ORDER_CANCELLED audit log:", auditErr);
     }
 
+    await recordCustomerOrderNotification({
+      orderId: order_id,
+      customerId: customerRecord.id,
+      status: "CANCELLED",
+    });
+
+    revalidatePath("/customer/order");
     revalidatePath("/customer/orders");
     revalidatePath("/customer/dashboard");
     return { success: true };
@@ -984,7 +1115,7 @@ export async function updateOrderStatus(
     // Verify order exists
     const { data: existing, error: fetchErr } = await supabase
       .from("customer_orders")
-      .select("id, status")
+      .select("id, status, customer_id")
       .eq("id", order_id)
       .single();
 
@@ -1074,6 +1205,13 @@ export async function updateOrderStatus(
       console.warn("Could not write CUSTOMER_ORDER_STATUS_CHANGED audit log:", auditErr);
     }
 
+    await recordCustomerOrderNotification({
+      orderId: order_id,
+      customerId: existing.customer_id,
+      status,
+    });
+
+    revalidatePath("/customer/order");
     revalidatePath("/customer/orders");
     revalidatePath("/customer/dashboard");
     // Revalidate STAFF/ADMIN management view
@@ -1241,6 +1379,13 @@ export async function fulfillCustomerOrder(
       console.error("Failed to link sale_id to order:", updateErr);
     }
 
+    await recordCustomerOrderNotification({
+      orderId,
+      customerId: order.customer_id,
+      status: "COMPLETED",
+    });
+
+    revalidatePath("/customer/order");
     revalidatePath("/customer-orders");
     revalidatePath("/customer/orders");
     revalidatePath("/customer/dashboard");
@@ -1346,6 +1491,11 @@ export async function getOrderDetails(
         id,
         customer_id,
         status,
+        fulfillment_method,
+        payment_method,
+        delivery_barangay,
+        delivery_address,
+        pickup_time,
         requested_date,
         sale_id,
         notes,
@@ -1360,7 +1510,8 @@ export async function getOrderDetails(
           packaging,
           package_quantity,
           requested_pieces,
-          quoted_unit_price
+          quoted_unit_price,
+          egg_type
         )
       `)
       .eq("id", orderId);
@@ -1382,6 +1533,7 @@ export async function getOrderDetails(
       package_quantity: number;
       requested_pieces: number;
       quoted_unit_price: number;
+      egg_type?: string | null;
     }
 
     const items: CustomerOrderItemView[] = (
@@ -1396,6 +1548,7 @@ export async function getOrderDetails(
         requested_pieces: item.requested_pieces,
         quoted_unit_price: unitPrice,
         estimated_line_total: item.package_quantity * unitPrice,
+        egg_type: (item.egg_type as EggType) || "WHITE",
       };
     });
 
@@ -1409,6 +1562,11 @@ export async function getOrderDetails(
       data: {
         id: order.id,
         status: order.status as CustomerOrderStatus,
+        fulfillment_method: order.fulfillment_method as FulfillmentMethod | null,
+        payment_method: order.payment_method as CustomerPaymentMethod | null,
+        delivery_barangay: order.delivery_barangay,
+        delivery_address: order.delivery_address,
+        pickup_time: order.pickup_time,
         requested_date: order.requested_date,
         sale_id: order.sale_id,
         notes: order.notes,

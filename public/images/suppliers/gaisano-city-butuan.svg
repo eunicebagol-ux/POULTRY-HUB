@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120" width="160" height="120">
+  <rect width="160" height="120" rx="20" fill="#B71C1C"/>
+  <rect x="6" y="6" width="148" height="108" rx="16" fill="none" stroke="#F9A825" stroke-width="2" stroke-dasharray="4 2"/>
+  <!-- GCB Monogram Initials Fallback -->
+  <g transform="translate(80, 48)" text-anchor="middle">
+    <text y="0" font-family="'Arial Black', Impact, system-ui, sans-serif" font-weight="900" font-size="28" fill="#FFFFFF" letter-spacing="3">GCB</text>
+  </g>
+  <!-- Subtitle -->
+  <text x="80" y="74" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="9" fill="#F9A825" text-anchor="middle" letter-spacing="1">GAISANO CITY BUTUAN</text>
+  <rect x="24" y="86" width="112" height="18" rx="4" fill="#000000" opacity="0.3"/>
+  <text x="80" y="98" font-family="system-ui, -apple-system, sans-serif" font-weight="600" font-size="7.5" fill="#FFFFFF" text-anchor="middle" letter-spacing="0.8">INITIALS FALLBACK</text>
+</svg>

@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { EggIcon, Menu, X } from "lucide-react";
-import { Show, UserButton } from "@clerk/nextjs";
+import { Show, UserButton, ClerkLoaded, ClerkLoading } from "@clerk/nextjs";
 import { ThemeToggle } from "@/components/theme-provider";
 import { cn } from "@/lib/utils";
 
@@ -105,13 +105,18 @@ export function LandingNavbar() {
                 Dashboard
               </Link>
               <div className="pl-1">
-                <UserButton
-                  appearance={{
-                    elements: {
-                      avatarBox: "size-9 rounded-full ring-2 ring-emerald-600/30",
-                    },
-                  }}
-                />
+                <ClerkLoading>
+                  <div className="h-8 w-8 rounded-full bg-muted animate-pulse" />
+                </ClerkLoading>
+                <ClerkLoaded>
+                  <UserButton
+                    appearance={{
+                      elements: {
+                        avatarBox: "size-9 rounded-full ring-2 ring-emerald-600/30",
+                      },
+                    }}
+                  />
+                </ClerkLoaded>
               </div>
             </Show>
           </div>
@@ -184,13 +189,18 @@ export function LandingNavbar() {
                 Go to Dashboard
               </Link>
               <div className="flex justify-center py-1">
-                <UserButton
-                  appearance={{
-                    elements: {
-                      avatarBox: "size-9 rounded-full ring-2 ring-emerald-600/30",
-                    },
-                  }}
-                />
+                <ClerkLoading>
+                  <div className="h-8 w-8 rounded-full bg-muted animate-pulse" />
+                </ClerkLoading>
+                <ClerkLoaded>
+                  <UserButton
+                    appearance={{
+                      elements: {
+                        avatarBox: "size-9 rounded-full ring-2 ring-emerald-600/30",
+                      },
+                    }}
+                  />
+                </ClerkLoaded>
               </div>
             </Show>
           </div>

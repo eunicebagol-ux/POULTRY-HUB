@@ -1,4 +1,4 @@
-import { Truck, CheckCircle2, XCircle, Building2 } from "lucide-react";
+import { CheckCircle2, XCircle, Building2 } from "lucide-react";
 import { getCurrentUserProfile } from "@/lib/user-profile";
 import { getSuppliers } from "@/actions/suppliers";
 import { SupplierTable } from "@/components/suppliers/supplier-table";
@@ -17,7 +17,7 @@ export default async function SuppliersPage() {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-2 border-b pb-4">
-          <Truck className="size-6 text-muted-foreground" />
+          <Building2 className="size-6 text-muted-foreground" />
           <h1 className="text-2xl font-semibold tracking-tight">
             Supplier Directory
           </h1>
@@ -43,7 +43,7 @@ export default async function SuppliersPage() {
       <div className="flex items-center justify-between border-b pb-4">
         <div>
           <div className="flex items-center gap-2">
-            <Truck className="size-6 text-muted-foreground" />
+            <Building2 className="size-6 text-primary" />
             <h1 className="text-2xl font-semibold tracking-tight">
               Supplier Directory
             </h1>

@@ -30,6 +30,13 @@ export const supplierSchema = z.object({
     .max(255, "Address must be at most 255 characters.")
     .optional()
     .or(z.literal("")),
+  logo_url: z
+    .string()
+    .trim()
+    .max(1000, "Logo URL must be at most 1000 characters.")
+    .nullable()
+    .optional()
+    .or(z.literal("")),
   is_active: z.boolean().default(true),
 });
 

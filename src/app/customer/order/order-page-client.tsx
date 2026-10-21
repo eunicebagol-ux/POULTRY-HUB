@@ -5,30 +5,54 @@ import Link from "next/link";
 import { ShoppingCart, List, ArrowRight } from "lucide-react";
 import { CustomerProductCatalog } from "@/components/customer/customer-product-catalog";
 import { CustomerOrderForm } from "@/components/customer/customer-order-form";
+import { CustomerOrderStatusNotification } from "@/components/customer/customer-order-status-notification";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import type { EggSize, PackagingType } from "@/types";
+import type { EggSize, PackagingType, BankTransferAccountView, EggType } from "@/types";
 import type { EggPriceCatalogEntry } from "@/actions/customer-orders";
+import type { OfficialGcashSettings } from "@/actions/settings";
+import type { CustomerOrderNotificationView } from "@/actions/customer-order-notifications";
 
 interface CartItem {
   size: EggSize;
   packaging: PackagingType;
   package_quantity: number;
   quoted_unit_price: number;
+  egg_type?: EggType;
 }
 
 interface OrderPageClientProps {
   catalog: EggPriceCatalogEntry[];
   catalogError?: string | null;
+  officialGcashSettings?: OfficialGcashSettings;
+  activeBankAccounts?: BankTransferAccountView[];
+  initialNotification?: CustomerOrderNotificationView | null;
 }
 
-export function OrderPageClient({ catalog, catalogError }: OrderPageClientProps) {
+export function OrderPageClient({
+  catalog,
+  catalogError,
+  officialGcashSettings,
+  activeBankAccounts,
+  initialNotification,
+}: OrderPageClientProps) {
   const [cart, setCart] = React.useState<CartItem[]>([]);
 
-  const handleRemoveItem = (size: EggSize, packaging: PackagingType) => {
+  const handleRemoveItem = (
+    size: EggSize,
+    packaging: PackagingType,
+    egg_type?: EggType
+  ) => {
     setCart((prev) =>
-      prev.filter((c) => !(c.size === size && c.packaging === packaging))
+      prev.filter(
+        (c) =>
+          !(
+            c.size === size &&
+            c.packaging === packaging &&
+            (c.egg_type ?? "WHITE") === (egg_type ?? "WHITE")
+          )
+      )
     );
   };
 
@@ -92,6 +116,11 @@ export function OrderPageClient({ catalog, catalogError }: OrderPageClientProps)
         {/* Cart / Order Summary: 1/3 width, sticky */}
         <div className="lg:col-span-1">
           <div className="sticky top-20 space-y-4">
+            {/* ── Order Status Notification Card (Above Your Cart) ── */}
+            <CustomerOrderStatusNotification
+              initialNotification={initialNotification ?? null}
+            />
+
             <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
               <ShoppingCart className="size-4 text-muted-foreground" />
               Your Cart
@@ -100,6 +129,8 @@ export function OrderPageClient({ catalog, catalogError }: OrderPageClientProps)
               cart={cart}
               onClearCart={() => setCart([])}
               onRemoveItem={handleRemoveItem}
+              officialGcashSettings={officialGcashSettings}
+              activeBankAccounts={activeBankAccounts}
             />
             {cart.length === 0 && (
               <div className="text-center pt-2">
