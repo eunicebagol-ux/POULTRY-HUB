@@ -943,9 +943,10 @@ export async function submitCustomerOrder(
 
     return { success: true, data: { orderId } };
   } catch (err) {
+    console.error("[submitCustomerOrder] Unexpected error:", err);
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to submit order.",
+      error: "Could not submit your order. Please try again.",
     };
   }
 }

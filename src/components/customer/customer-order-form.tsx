@@ -1,5 +1,7 @@
 "use client";
 
+import imageCompression from "browser-image-compression";
+
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
@@ -387,22 +389,43 @@ export function CustomerOrderForm({
   const today = new Date().toISOString().split("T")[0];
 
 
-  // Handle receipt file upload (convert to Base64 data URL)
-  const handleReceiptFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle receipt file upload (compress images then convert to Base64 data URL)
+  const handleReceiptFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Receipt file is too large. Max size is 5MB.");
+    // Hard-block files over 4 MB before any processing
+    if (file.size > 4 * 1024 * 1024) {
+      toast.error("Receipt file is too large. Maximum allowed size is 4 MB.");
+      e.target.value = "";
       return;
     }
 
     setReceiptFileName(file.name);
+
+    // Compress image files (JPEG/PNG/WebP/HEIC) before base64-encoding so that
+    // phone photos don't push the Server Action body over the 4 MB limit.
+    let uploadFile: File | Blob = file;
+    if (file.type.startsWith("image/")) {
+      try {
+        uploadFile = await imageCompression(file, {
+          maxSizeMB: 1,          // target ≤ 1 MB after compression
+          maxWidthOrHeight: 1600, // phone photos shrunk to 1600 px on longest side
+          useWebWorker: true,
+          fileType: file.type,
+        });
+      } catch {
+        // If compression fails, fall back to the original file — the hard-block
+        // above already ensured it is within 4 MB.
+        uploadFile = file;
+      }
+    }
+
     const reader = new FileReader();
     reader.onloadend = () => {
       setReceiptUrl(reader.result as string);
     };
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(uploadFile);
   };
 
   const handleRemoveReceipt = () => {
