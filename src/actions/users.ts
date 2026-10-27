@@ -83,15 +83,18 @@ export async function getUsers(): Promise<ActionResult<UserProfileRow[]>> {
               primaryEmail ||
               "Customer";
 
-            const isApproved = u.publicMetadata?.is_active === true;
+            // If Clerk metadata explicitly marked the account as deactivated, respect that.
+            // Otherwise, new CUSTOMER accounts are active by default.
+            const isExplicitlyDeactivated = u.publicMetadata?.is_active === false;
+            const isActive = !isExplicitlyDeactivated;
 
             const newProfileRow: UserProfileRow = {
               id: u.id,
               full_name: fullName,
-              role: "CUSTOMER", // STRICT SECURITY: Unprovisioned accounts default to quarantined CUSTOMER role
+              role: "CUSTOMER", // STRICT SECURITY: Unprovisioned accounts default to CUSTOMER role
               phone: u.phoneNumbers?.[0]?.phoneNumber || null,
               avatar_url: u.imageUrl || null,
-              is_active: isApproved, // Inactive/pending by default until admin explicitly approves
+              is_active: isActive,
               created_at: new Date(u.createdAt).toISOString(),
               updated_at: new Date(u.updatedAt).toISOString(),
             };

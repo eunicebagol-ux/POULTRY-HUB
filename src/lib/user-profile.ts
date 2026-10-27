@@ -87,9 +87,9 @@ export async function getCurrentUserProfile(): Promise<UserProfile | null> {
     }
 
     // ── 3. Auto-provision: only for genuine new self-registrations ───────────
-    // At this point no profile row exists at all.  The ONLY safe default for a
+    // At this point no profile row exists at all. The default for a
     // self-registered Clerk user (who went through the public /sign-up flow) is
-    // CUSTOMER with is_active = false (pending admin approval).
+    // CUSTOMER with is_active = true so they can immediately access the customer portal.
     //
     // STAFF and ADMIN accounts must be provisioned by an administrator via the
     // user management screen — never auto-provisioned from this path.
@@ -109,11 +109,9 @@ export async function getCurrentUserProfile(): Promise<UserProfile | null> {
       full_name: fullName,
       phone: clerkUser.phoneNumbers?.[0]?.phoneNumber || null,
       avatar_url: clerkUser.imageUrl || null,
-      // is_active starts as false — admin must approve the customer account.
-      // We deliberately ignore clerkUser.publicMetadata here: metadata is
-      // editable by any Clerk dashboard operator and must not be trusted for
-      // granting farm system access.
-      is_active: false,
+      // Newly registered customers are auto-activated so they can access the customer portal.
+      // Farm operations remain isolated since the role is strictly CUSTOMER.
+      is_active: true,
     };
 
     try {
@@ -126,8 +124,7 @@ export async function getCurrentUserProfile(): Promise<UserProfile | null> {
       );
     } catch (upsertErr) {
       // Silently continue if the DB write fails — the in-memory newProfile
-      // (CUSTOMER, is_active: false) is still returned so the caller can
-      // show the pending-approval screen rather than crashing.
+      // (CUSTOMER, is_active: true) is still returned so the caller can proceed.
       console.warn("[user-profile] Could not upsert new customer profile:", upsertErr);
     }
 
@@ -138,7 +135,7 @@ export async function getCurrentUserProfile(): Promise<UserProfile | null> {
         const normalizedEmail = primaryEmail.toLowerCase().trim();
         const { data: matchingCusts } = await adminClient
           .from("customers")
-          .select("id, clerk_user_id")
+          .select("id, clerk_user_id, is_active")
           .eq("email", normalizedEmail);
 
         const unlinkedCusts = (matchingCusts ?? []).filter(
@@ -146,11 +143,13 @@ export async function getCurrentUserProfile(): Promise<UserProfile | null> {
         );
 
         if (unlinkedCusts.length === 1) {
+          // If the unlinked customer record was already deactivated by an admin, preserve that status
+          const shouldBeActive = unlinkedCusts[0].is_active !== false;
           await adminClient
             .from("customers")
             .update({
               clerk_user_id: userId,
-              is_active: false,
+              is_active: shouldBeActive,
               updated_at: new Date().toISOString(),
             })
             .eq("id", unlinkedCusts[0].id);
@@ -160,7 +159,7 @@ export async function getCurrentUserProfile(): Promise<UserProfile | null> {
             email: normalizedEmail,
             phone: newProfile.phone,
             clerk_user_id: userId,
-            is_active: false,
+            is_active: true,
           });
         }
       } catch (custErr) {

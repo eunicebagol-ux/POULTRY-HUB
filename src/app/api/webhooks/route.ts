@@ -61,9 +61,9 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     // Preserve existing role and active status if profile already exists (e.g. webhook replay or re-registration).
-    // Brand new sign-ups default to CUSTOMER role and is_active = false (pending ADMIN approval).
+    // Brand new sign-ups default to CUSTOMER role and is_active = true for immediate customer portal access.
     const assignedRole = existingProfile?.role || "CUSTOMER";
-    const isActive = existingProfile ? existingProfile.is_active : false;
+    const isActive = existingProfile ? existingProfile.is_active : true;
 
     const { error } = await supabase.from("profiles").upsert(
       {
@@ -94,28 +94,29 @@ export async function POST(req: NextRequest) {
         const normalizedEmail = primaryEmail.toLowerCase().trim();
         const { data: matchingCusts } = await supabase
           .from("customers")
-          .select("id, clerk_user_id")
+          .select("id, clerk_user_id, is_active")
           .eq("email", normalizedEmail);
 
         const unlinkedCusts = (matchingCusts ?? []).filter((c) => !c.clerk_user_id);
 
         if (unlinkedCusts.length === 1) {
-          // Link existing unlinked customer record to this Clerk identity
+          // Link existing unlinked customer record to this Clerk identity, preserving inactive status if intentionally deactivated
+          const shouldBeActive = unlinkedCusts[0].is_active !== false && isActive;
           await supabase
             .from("customers")
             .update({
               clerk_user_id: id,
-              is_active: isActive,
+              is_active: shouldBeActive,
               updated_at: new Date().toISOString(),
             })
             .eq("id", unlinkedCusts[0].id);
         } else if (!matchingCusts || matchingCusts.length === 0) {
-          // Provision new customer record in pending state (is_active = false)
+          // Provision new customer record matching active profile status
           await supabase.from("customers").insert({
             name: fullName,
             email: normalizedEmail,
             clerk_user_id: id,
-            is_active: false,
+            is_active: isActive,
           });
         }
       } catch (custErr) {
@@ -140,13 +141,16 @@ export async function POST(req: NextRequest) {
     // If profile does not exist yet (e.g. event out of order),
     // provision with default CUSTOMER role to prevent unauthorized privilege escalation.
     // Preserves existing role and active status if profile already exists.
+    const assignedRole = existingProfile?.role || "CUSTOMER";
+    const isActive = existingProfile ? existingProfile.is_active : true;
+
     const { error } = await supabase.from("profiles").upsert(
       {
         id,
-        role: existingProfile?.role || "CUSTOMER",
+        role: assignedRole,
         full_name: clerkFullName || existingProfile?.full_name || "Customer",
         avatar_url: image_url || null,
-        is_active: existingProfile ? existingProfile.is_active : false,
+        is_active: isActive,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "id" }
