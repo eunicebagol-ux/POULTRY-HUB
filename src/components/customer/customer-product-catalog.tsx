@@ -20,6 +20,7 @@ import {
   DEFAULT_CURRENCY_SYMBOL,
   getEggProductImage,
   getEggProductAltText,
+  calculatePackagingPrice,
 } from "@/lib/constants";
 import type { EggSize, PackagingType, EggType } from "@/types";
 import type { EggPriceCatalogEntry } from "@/actions/customer-orders";
@@ -44,17 +45,7 @@ function getEffectivePrice(
   entry: EggPriceCatalogEntry,
   packaging: PackagingType
 ): number {
-  switch (packaging) {
-    case "TRAY_30":
-      return entry.price_tray_30 ?? entry.price_per_piece * PACKAGING_MULTIPLIERS["TRAY_30"];
-    case "CARTON_12":
-      return entry.price_carton_12 ?? entry.price_per_piece * PACKAGING_MULTIPLIERS["CARTON_12"];
-    case "BOX_360":
-      return entry.price_box_360 ?? entry.price_per_piece * PACKAGING_MULTIPLIERS["BOX_360"];
-    case "PIECE":
-    default:
-      return entry.price_per_piece;
-  }
+  return calculatePackagingPrice(packaging, entry.price_per_piece, entry);
 }
 
 function formatCurrency(amount: number): string {
@@ -69,24 +60,48 @@ export function CustomerProductCatalog({
   cart,
   onCartChange,
 }: ProductCatalogProps) {
-  const availableItems = catalog.filter((entry) => entry.is_available);
+  // Extract unique available sizes in display order
+  const availableSizes = React.useMemo(() => {
+    const seen = new Set<EggSize>();
+    const sizes: EggSize[] = [];
+    const sorted = [...catalog].sort(
+      (a, b) => a.display_order - b.display_order
+    );
+    for (const item of sorted) {
+      if (item.is_available && !seen.has(item.size)) {
+        seen.add(item.size);
+        sizes.push(item.size);
+      }
+    }
+    return sizes;
+  }, [catalog]);
+
+  // Resolves the exact catalog entry for a size and egg type combination (no silent fallback to other egg types)
+  const getCatalogEntry = React.useCallback(
+    (size: EggSize, eggType: EggType): EggPriceCatalogEntry | undefined => {
+      return catalog.find(
+        (e) => e.size === size && (e.egg_type ?? "WHITE") === eggType
+      );
+    },
+    [catalog]
+  );
 
   // Selected packaging per size (defaults to TRAY_30 if available)
   const [selectedPackaging, setSelectedPackaging] = React.useState<
     Record<string, PackagingType>
   >(() =>
-    Object.fromEntries(availableItems.map((e) => [e.size, "TRAY_30" as PackagingType]))
+    Object.fromEntries(availableSizes.map((s) => [s, "TRAY_30" as PackagingType]))
   );
 
   // Selected egg type (shell color) per size — defaults to "WHITE"
   const [selectedEggType, setSelectedEggType] = React.useState<
     Record<string, EggType>
   >(() =>
-    Object.fromEntries(availableItems.map((e) => [e.size, "WHITE" as EggType]))
+    Object.fromEntries(availableSizes.map((s) => [s, "WHITE" as EggType]))
   );
 
   const [quantities, setQuantities] = React.useState<Record<string, number>>(
-    () => Object.fromEntries(availableItems.map((e) => [e.size, 1]))
+    () => Object.fromEntries(availableSizes.map((s) => [s, 1]))
   );
 
   const cartMap = React.useMemo(() => {
@@ -97,12 +112,16 @@ export function CustomerProductCatalog({
     return map;
   }, [cart]);
 
-  const handleAddToCart = (entry: EggPriceCatalogEntry) => {
-    const packaging = selectedPackaging[entry.size] || "TRAY_30";
-    const eggType = selectedEggType[entry.size] || "WHITE";
-    const qty = quantities[entry.size] || 1;
-    const price = getEffectivePrice(entry, packaging);
-    const key = `${entry.size}:${packaging}:${eggType}`;
+  const handleAddToCart = (sizeOrEntry: EggSize | EggPriceCatalogEntry) => {
+    const size = typeof sizeOrEntry === "string" ? sizeOrEntry : sizeOrEntry.size;
+    const packaging = selectedPackaging[size] || "TRAY_30";
+    const eggType = selectedEggType[size] || "WHITE";
+    const qty = quantities[size] || 1;
+    const activeEntry = getCatalogEntry(size, eggType);
+    if (!activeEntry || !activeEntry.is_available) return;
+
+    const price = getEffectivePrice(activeEntry, packaging);
+    const key = `${size}:${packaging}:${eggType}`;
 
     const existingCart = cart.filter(
       (c) => `${c.size}:${c.packaging}:${c.egg_type ?? "WHITE"}` !== key
@@ -110,7 +129,7 @@ export function CustomerProductCatalog({
     onCartChange([
       ...existingCart,
       {
-        size: entry.size,
+        size,
         packaging,
         package_quantity: qty,
         quoted_unit_price: price,
@@ -143,7 +162,7 @@ export function CustomerProductCatalog({
     }));
   };
 
-  if (availableItems.length === 0) {
+  if (availableSizes.length === 0) {
     return (
       <div className="py-16 text-center space-y-3">
         <div className="size-14 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto">
@@ -162,16 +181,19 @@ export function CustomerProductCatalog({
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      {availableItems.map((entry) => {
-        const packaging = selectedPackaging[entry.size] || "TRAY_30";
-        const eggType = selectedEggType[entry.size] || "WHITE";
-        const price = getEffectivePrice(entry, packaging);
-        const qty = quantities[entry.size] || 1;
-        const cartKey = `${entry.size}:${packaging}:${eggType}`;
+      {availableSizes.map((size) => {
+        const packaging = selectedPackaging[size] || "TRAY_30";
+        const eggType = selectedEggType[size] || "WHITE";
+        const entry = getCatalogEntry(size, eggType);
+        const isEntryAvailable = Boolean(entry && entry.is_available);
+
+        const price = entry ? getEffectivePrice(entry, packaging) : 0;
+        const qty = quantities[size] || 1;
+        const cartKey = `${size}:${packaging}:${eggType}`;
         const inCart = cartMap.has(cartKey);
         const cartItem = cartMap.get(cartKey);
         const pieces = qty * PACKAGING_MULTIPLIERS[packaging];
-        const stockPieces = entry.stock_pieces ?? 0;
+        const stockPieces = entry?.stock_pieces ?? 0;
         const stockLabel =
           stockPieces === 0
             ? "Out of stock"
@@ -180,12 +202,12 @@ export function CustomerProductCatalog({
             : `${stockPieces.toLocaleString()} pcs available`;
         const isLowStock = stockPieces > 0 && stockPieces < 30;
 
-        const imageSrc = getEggProductImage(entry.size, eggType);
-        const imageAlt = getEggProductAltText(entry.size, eggType);
+        const imageSrc = getEggProductImage(size, eggType);
+        const imageAlt = getEggProductAltText(size, eggType);
 
         return (
           <Card
-            key={entry.size}
+            key={size}
             className={`group/card border transition-all duration-200 hover:shadow-md pt-0 gap-0 overflow-hidden ${
               inCart
                 ? "border-emerald-500/50 bg-emerald-500/5 dark:bg-emerald-500/10 shadow-md"
@@ -200,7 +222,7 @@ export function CustomerProductCatalog({
                 fill
                 sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                 className="object-contain p-1.5 transition-transform duration-300 group-hover/card:scale-105"
-                priority={entry.display_order <= 3}
+                priority={(entry?.display_order ?? 99) <= 3}
               />
             </div>
 
@@ -208,10 +230,10 @@ export function CustomerProductCatalog({
               <div className="flex items-start justify-between">
                 <div>
                   <CardTitle className="text-sm font-bold text-foreground">
-                    {EGG_SIZE_LABELS[entry.size]}
+                    {EGG_SIZE_LABELS[size]}
                   </CardTitle>
                   <p className="text-[10px] text-muted-foreground mt-0.5">
-                    {entry.size} Grade
+                    {size} Grade
                   </p>
                 </div>
                 <div className="flex flex-col items-end gap-1">
@@ -220,7 +242,17 @@ export function CustomerProductCatalog({
                       In Cart
                     </Badge>
                   )}
-                  {isLowStock && !inCart && (
+                  {!entry && (
+                    <Badge variant="outline" className="border-amber-500/30 text-amber-600 dark:text-amber-400 text-[10px] py-0.5">
+                      Not Listed
+                    </Badge>
+                  )}
+                  {entry && !entry.is_available && !inCart && (
+                    <Badge variant="outline" className="border-muted-foreground/30 text-muted-foreground text-[10px] py-0.5">
+                      Unavailable
+                    </Badge>
+                  )}
+                  {entry && isLowStock && !inCart && entry.is_available && (
                     <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/20 text-[10px] py-0.5">
                       Low Stock
                     </Badge>
@@ -231,29 +263,50 @@ export function CustomerProductCatalog({
 
             <CardContent className="px-4 pb-4 space-y-3">
               {/* Price display */}
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
-                  {formatCurrency(price)}
-                </span>
-                <span className="text-[10px] text-muted-foreground">
-                  / {PACKAGING_LABELS[packaging]}
-                </span>
-              </div>
+              {entry ? (
+                <>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                      {formatCurrency(price)}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">
+                      / {PACKAGING_LABELS[packaging]}
+                    </span>
+                  </div>
 
-              {/* Per-piece breakdown */}
-              <p className="text-[10px] text-muted-foreground">
-                ≈ {formatCurrency(entry.price_per_piece)} per piece
-                {packaging !== "PIECE" && ` · ${PACKAGING_MULTIPLIERS[packaging]} pcs`}
-              </p>
+                  {/* Per-piece breakdown */}
+                  <p className="text-[10px] text-muted-foreground">
+                    ≈ {formatCurrency(entry.price_per_piece)} per piece
+                    {packaging !== "PIECE" && ` · ${PACKAGING_MULTIPLIERS[packaging]} pcs`}
+                  </p>
+                </>
+              ) : (
+                <div className="space-y-0.5">
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-lg font-bold text-muted-foreground">
+                      Not Available
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    {eggType === "BROWN" ? "Brown" : "White"} eggs in this size are not listed in the catalog.
+                  </p>
+                </div>
+              )}
 
               {/* Stock indicator */}
               <div
                 className="flex items-center gap-1.5 cursor-help"
-                title="Current farm inventory level. This is informational only. Actual stock is validated at order fulfillment time by farm staff."
+                title={
+                  entry
+                    ? "Current farm inventory level. This is informational only. Actual stock is validated at order fulfillment time by farm staff."
+                    : "This egg type has not been added to the product catalog."
+                }
               >
                 <div
                   className={`size-1.5 rounded-full ${
-                    stockPieces === 0
+                    !entry
+                      ? "bg-muted-foreground/40"
+                      : stockPieces === 0
                       ? "bg-rose-500"
                       : isLowStock
                       ? "bg-amber-500"
@@ -261,7 +314,7 @@ export function CustomerProductCatalog({
                   }`}
                 />
                 <span className="text-[10px] text-muted-foreground">
-                  {stockLabel}
+                  {entry ? stockLabel : "Catalog entry missing"}
                 </span>
                 <Info className="size-3 text-muted-foreground/50" />
               </div>
@@ -276,7 +329,7 @@ export function CustomerProductCatalog({
                   onValueChange={(val) =>
                     setSelectedEggType((prev) => ({
                       ...prev,
-                      [entry.size]: val as EggType,
+                      [size]: val as EggType,
                     }))
                   }
                 >
@@ -304,7 +357,7 @@ export function CustomerProductCatalog({
                   onValueChange={(val) =>
                     setSelectedPackaging((prev) => ({
                       ...prev,
-                      [entry.size]: val as PackagingType,
+                      [size]: val as PackagingType,
                     }))
                   }
                 >
@@ -332,9 +385,9 @@ export function CustomerProductCatalog({
                     variant="outline"
                     size="icon"
                     className="size-8 shrink-0"
-                    onClick={() => handleQuantityChange(entry.size, -1)}
-                    disabled={qty <= 1}
-                    aria-label={`Decrease quantity for ${EGG_SIZE_LABELS[entry.size]}`}
+                    onClick={() => handleQuantityChange(size, -1)}
+                    disabled={!isEntryAvailable || qty <= 1}
+                    aria-label={`Decrease quantity for ${EGG_SIZE_LABELS[size]}`}
                   >
                     <Minus className="size-3" />
                   </Button>
@@ -346,17 +399,24 @@ export function CustomerProductCatalog({
                     variant="outline"
                     size="icon"
                     className="size-8 shrink-0"
-                    onClick={() => handleQuantityChange(entry.size, 1)}
-                    aria-label={`Increase quantity for ${EGG_SIZE_LABELS[entry.size]}`}
+                    onClick={() => handleQuantityChange(size, 1)}
+                    disabled={!isEntryAvailable}
+                    aria-label={`Increase quantity for ${EGG_SIZE_LABELS[size]}`}
                   >
                     <Plus className="size-3" />
                   </Button>
                 </div>
                 <p className="text-[10px] text-muted-foreground text-center">
-                  = {pieces.toLocaleString()} pieces ·{" "}
-                  <span className="font-semibold text-foreground">
-                    {formatCurrency(qty * price)} est.
-                  </span>
+                  {entry ? (
+                    <>
+                      = {pieces.toLocaleString()} pieces ·{" "}
+                      <span className="font-semibold text-foreground">
+                        {formatCurrency(qty * price)} est.
+                      </span>
+                    </>
+                  ) : (
+                    <span>—</span>
+                  )}
                 </p>
               </div>
 
@@ -368,7 +428,8 @@ export function CustomerProductCatalog({
                     variant="default"
                     size="sm"
                     className="flex-1 text-xs h-8 bg-emerald-600 hover:bg-emerald-700"
-                    onClick={() => handleAddToCart(entry)}
+                    onClick={() => handleAddToCart(size)}
+                    disabled={!isEntryAvailable}
                   >
                     Update Cart
                   </Button>
@@ -379,7 +440,7 @@ export function CustomerProductCatalog({
                     className="size-8 text-destructive hover:bg-destructive/10 shrink-0"
                     onClick={() =>
                       handleRemoveFromCart(
-                        entry.size,
+                        size,
                         cartItem!.packaging,
                         cartItem!.egg_type ?? "WHITE"
                       )
@@ -394,11 +455,17 @@ export function CustomerProductCatalog({
                   type="button"
                   size="sm"
                   className="w-full text-xs h-8"
-                  onClick={() => handleAddToCart(entry)}
-                  disabled={stockPieces === 0}
+                  onClick={() => handleAddToCart(size)}
+                  disabled={!isEntryAvailable || stockPieces === 0}
                 >
                   <ShoppingCart className="size-3.5 mr-1.5" />
-                  Add to Cart
+                  {!entry
+                    ? "Not Available"
+                    : !entry.is_available
+                    ? "Unavailable"
+                    : stockPieces === 0
+                    ? "Out of Stock"
+                    : "Add to Cart"}
                 </Button>
               )}
             </CardContent>

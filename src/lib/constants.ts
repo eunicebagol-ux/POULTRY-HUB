@@ -131,6 +131,75 @@ export const PACKAGING_LABELS: Record<PackagingType, string> = {
   BOX_360: "Box (×360)",
 };
 
+// ─── Egg Pricing Reference & Helpers ─────────────────────────────────────────
+
+export const EGG_PRICE_PER_PIECE: Record<EggSize, number> = {
+  SMALL: 6.0,
+  MEDIUM: 7.0,
+  LARGE: 8.0,
+  EXTRA_LARGE: 9.0,
+  JUMBO: 10.0,
+  UNGRADED: 5.0,
+};
+
+export const CONFIRMED_TRAY_PRICES: Record<EggType, Record<EggSize, number>> = {
+  WHITE: {
+    SMALL: 180.0,
+    MEDIUM: 210.0,
+    LARGE: 240.0,
+    EXTRA_LARGE: 270.0,
+    JUMBO: 300.0,
+    UNGRADED: 150.0,
+  },
+  BROWN: {
+    SMALL: 190.0,
+    MEDIUM: 220.0,
+    LARGE: 250.0,
+    EXTRA_LARGE: 270.0,
+    JUMBO: 300.0,
+    UNGRADED: 150.0,
+  },
+};
+
+/**
+ * Calculates authoritative packaging price for an egg product line.
+ * Derivation rules:
+ * - PIECE: price_per_piece
+ * - CARTON_12: explicit price_carton_12 when present; otherwise price_per_piece * 12
+ * - BOX_360: explicit price_box_360 when present; otherwise price_per_piece * 360
+ * - TRAY_30: explicit price_tray_30 when present; otherwise price_per_piece * 30
+ */
+export function calculatePackagingPrice(
+  packaging: PackagingType,
+  pricePerPiece: number,
+  overrides?: {
+    price_tray_30?: number | null;
+    price_carton_12?: number | null;
+    price_box_360?: number | null;
+  }
+): number {
+  switch (packaging) {
+    case "TRAY_30":
+      return (
+        overrides?.price_tray_30 ??
+        pricePerPiece * PACKAGING_MULTIPLIERS.TRAY_30
+      );
+    case "CARTON_12":
+      return (
+        overrides?.price_carton_12 ??
+        pricePerPiece * PACKAGING_MULTIPLIERS.CARTON_12
+      );
+    case "BOX_360":
+      return (
+        overrides?.price_box_360 ??
+        pricePerPiece * PACKAGING_MULTIPLIERS.BOX_360
+      );
+    case "PIECE":
+    default:
+      return pricePerPiece;
+  }
+}
+
 // ─── Flock Status ─────────────────────────────────────────────────────────────
 
 export const FLOCK_STATUSES: FlockStatus[] = ["ACTIVE", "RETIRED", "QUARANTINED"];

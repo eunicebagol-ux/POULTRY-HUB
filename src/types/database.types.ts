@@ -9,6 +9,7 @@ export type Json =
 export type UserRole = "ADMIN" | "STAFF" | "CUSTOMER";
 export type EggSize = "SMALL" | "MEDIUM" | "LARGE" | "EXTRA_LARGE" | "JUMBO" | "UNGRADED";
 export type PackagingType = "PIECE" | "TRAY_30" | "CARTON_12" | "BOX_360";
+export type EggType = "WHITE" | "BROWN";
 export type EntryType = "STANDARD" | "CORRECTION_REVERSAL";
 export type EggTransactionType = "PRODUCTION" | "SALE" | "ADJUSTMENT" | "CORRECTION";
 export type FeedTransactionType = "STOCK_RECEIVED" | "CONSUMPTION" | "ADJUSTMENT" | "CORRECTION";
@@ -931,7 +932,7 @@ export interface Database {
           package_quantity: number;
           requested_pieces: number;
           quoted_unit_price: number;
-          egg_type?: string | null;
+          egg_type?: EggType | null;
           created_at: string;
         };
         Insert: {
@@ -942,7 +943,7 @@ export interface Database {
           package_quantity: number;
           requested_pieces: number;
           quoted_unit_price: number;
-          egg_type?: string | null;
+          egg_type?: EggType | null;
           created_at?: string;
         };
         Update: {
@@ -953,7 +954,7 @@ export interface Database {
           package_quantity?: number;
           requested_pieces?: number;
           quoted_unit_price?: number;
-          egg_type?: string | null;
+          egg_type?: EggType | null;
           created_at?: string;
         };
         Relationships: [
@@ -970,6 +971,7 @@ export interface Database {
         Row: {
           id: string;
           size: EggSize;
+          egg_type: EggType;
           price_per_piece: number;
           price_tray_30: number | null;
           price_carton_12: number | null;
@@ -982,6 +984,7 @@ export interface Database {
         Insert: {
           id?: string;
           size: EggSize;
+          egg_type?: EggType;
           price_per_piece: number;
           price_tray_30?: number | null;
           price_carton_12?: number | null;
@@ -994,6 +997,7 @@ export interface Database {
         Update: {
           id?: string;
           size?: EggSize;
+          egg_type?: EggType;
           price_per_piece?: number;
           price_tray_30?: number | null;
           price_carton_12?: number | null;

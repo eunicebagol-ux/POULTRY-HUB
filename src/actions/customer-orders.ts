@@ -30,7 +30,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { currentUser } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { recordCustomerOrderNotification } from "@/actions/customer-order-notifications";
-import { PACKAGING_MULTIPLIERS, ALLOWED_STATUS_TRANSITIONS } from "@/lib/constants";
+import { PACKAGING_MULTIPLIERS, ALLOWED_STATUS_TRANSITIONS, calculatePackagingPrice } from "@/lib/constants";
 import {
   submitCustomerOrderSchema,
   cancelCustomerOrderSchema,
@@ -85,6 +85,7 @@ export interface CustomerOrderView {
 
 export interface EggPriceCatalogEntry {
   size: EggSize;
+  egg_type: EggType;
   price_per_piece: number;
   price_tray_30: number | null;
   price_carton_12: number | null;
@@ -93,6 +94,17 @@ export interface EggPriceCatalogEntry {
   display_order: number;
   // Derived convenience field for the order form
   stock_pieces?: number;
+}
+
+interface RawEggPriceCatalogRow {
+  size: EggSize;
+  egg_type?: EggType | string | null;
+  price_per_piece: number;
+  price_tray_30: number | null;
+  price_carton_12: number | null;
+  price_box_360: number | null;
+  is_available: boolean;
+  display_order?: number;
 }
 
 // ─── Helper: Resolve authenticated customer record ────────────────────────────
@@ -223,29 +235,52 @@ export async function getEggPriceCatalog(): Promise<
     const [catalogRes, inventoryRes] = await Promise.all([
       supabase
         .from("egg_price_catalog")
-        .select("size, price_per_piece, price_tray_30, price_carton_12, price_box_360, is_available, display_order")
+        .select("size, egg_type, price_per_piece, price_tray_30, price_carton_12, price_box_360, is_available, display_order")
         .order("display_order", { ascending: true })
-        .order("size", { ascending: true }),
+        .order("size", { ascending: true })
+        .order("egg_type", { ascending: true }),
       supabase
         .from("egg_inventory")
         .select("size, stock_pieces"),
     ]);
 
+    let catalogRows = catalogRes.data;
+
     if (catalogRes.error) {
-      // Missing table or schema cache reload delay — return informative message
+      // If error is because column egg_type does not exist yet (pre-migration compatibility fallback)
       if (
-        catalogRes.error.message?.includes("does not exist") ||
-        catalogRes.error.message?.includes("schema cache") ||
-        catalogRes.error.code === "42P01" ||
-        catalogRes.error.code === "PGRST205"
+        catalogRes.error.message?.includes("egg_type") ||
+        catalogRes.error.message?.includes("column")
       ) {
-        return {
-          success: false,
-          error:
-            "Product catalog is not yet available. Please contact the farm administrator.",
-        };
+        const fallbackRes = await supabase
+          .from("egg_price_catalog")
+          .select("size, price_per_piece, price_tray_30, price_carton_12, price_box_360, is_available, display_order")
+          .order("display_order", { ascending: true })
+          .order("size", { ascending: true });
+        if (!fallbackRes.error && fallbackRes.data) {
+          catalogRows = fallbackRes.data.map((r) => ({
+            ...r,
+            egg_type: "WHITE" as EggType,
+          }));
+        }
       }
-      return { success: false, error: catalogRes.error.message };
+
+      if (!catalogRows) {
+        // Missing table or schema cache reload delay — return informative message
+        if (
+          catalogRes.error.message?.includes("does not exist") ||
+          catalogRes.error.message?.includes("schema cache") ||
+          catalogRes.error.code === "42P01" ||
+          catalogRes.error.code === "PGRST205"
+        ) {
+          return {
+            success: false,
+            error:
+              "Product catalog is not yet available. Please contact the farm administrator.",
+          };
+        }
+        return { success: false, error: catalogRes.error.message };
+      }
     }
 
     let inventoryData = inventoryRes.data;
@@ -267,15 +302,16 @@ export async function getEggPriceCatalog(): Promise<
       (inventoryData ?? []).map((r) => [r.size, r.stock_pieces])
     );
 
-    const catalog = (catalogRes.data ?? []).map((entry) => ({
-      size: entry.size as EggSize,
+    const catalog = ((catalogRows ?? []) as unknown as RawEggPriceCatalogRow[]).map((entry) => ({
+      size: entry.size,
+      egg_type: (entry.egg_type as EggType) || "WHITE",
       price_per_piece: Number(entry.price_per_piece) || 0,
       price_tray_30: entry.price_tray_30 != null ? Number(entry.price_tray_30) : null,
       price_carton_12:
         entry.price_carton_12 != null ? Number(entry.price_carton_12) : null,
       price_box_360: entry.price_box_360 != null ? Number(entry.price_box_360) : null,
       is_available: entry.is_available,
-      display_order: entry.display_order,
+      display_order: entry.display_order ?? 0,
       stock_pieces: stockMap.get(entry.size) ?? 0,
     }));
 
@@ -669,14 +705,37 @@ export async function submitCustomerOrder(
     // ── Validate prices against live catalog ─────────────────────────────────
     // Fetch catalog entries for all sizes requested
     const requestedSizes = [...new Set(items.map((i) => i.size))];
-    const { data: catalogEntries, error: catalogError } = await supabase
+    let catalogEntries: RawEggPriceCatalogRow[] | null = null;
+    const { data: catData, error: catalogError } = await supabase
       .from("egg_price_catalog")
       .select(
-        "size, price_per_piece, price_tray_30, price_carton_12, price_box_360, is_available"
+        "size, egg_type, price_per_piece, price_tray_30, price_carton_12, price_box_360, is_available"
       )
       .in("size", requestedSizes);
 
-    if (catalogError) {
+    if (catData) {
+      catalogEntries = catData as unknown as RawEggPriceCatalogRow[];
+    } else if (
+      catalogError &&
+      (catalogError.message?.includes("egg_type") ||
+        catalogError.message?.includes("column"))
+    ) {
+      // Backward compatibility fallback if egg_type column is not yet present on remote DB
+      const fallback = await supabase
+        .from("egg_price_catalog")
+        .select(
+          "size, price_per_piece, price_tray_30, price_carton_12, price_box_360, is_available"
+        )
+        .in("size", requestedSizes);
+      if (fallback.data) {
+        catalogEntries = (fallback.data as unknown as RawEggPriceCatalogRow[]).map((r) => ({
+          ...r,
+          egg_type: "WHITE" as EggType,
+        }));
+      }
+    }
+
+    if (!catalogEntries && catalogError) {
       if (
         catalogError.message?.includes("does not exist") ||
         catalogError.message?.includes("schema cache") ||
@@ -704,7 +763,8 @@ export async function submitCustomerOrder(
     >();
 
     for (const entry of catalogEntries ?? []) {
-      catalogMap.set(entry.size, {
+      const entryType = (entry.egg_type as EggType) || "WHITE";
+      catalogMap.set(`${entry.size}:${entryType}`, {
         price_per_piece: Number(entry.price_per_piece) || 0,
         price_tray_30: entry.price_tray_30 != null ? Number(entry.price_tray_30) : null,
         price_carton_12:
@@ -715,53 +775,39 @@ export async function submitCustomerOrder(
       });
     }
 
-    // Validate each item against the catalog
+    // Validate each item against the catalog using both size and egg_type
     for (const item of items) {
-      const catalog = catalogMap.get(item.size);
+      const itemEggType = item.egg_type ?? "WHITE";
+      const catalog =
+        catalogMap.get(`${item.size}:${itemEggType}`) ||
+        (itemEggType === "WHITE" ? catalogMap.get(`${item.size}:WHITE`) : undefined);
 
       if (!catalog) {
         return {
           success: false,
-          error: `Size "${item.size}" is not found in the product catalog. Please refresh and try again.`,
+          error: `${itemEggType === "BROWN" ? "Brown" : "White"} Egg (${item.size}) is not found in the product catalog. Please refresh and try again.`,
         };
       }
 
       if (!catalog.is_available) {
         return {
           success: false,
-          error: `Size "${item.size}" is currently not available for ordering. Please check the product catalog.`,
+          error: `${itemEggType === "BROWN" ? "Brown" : "White"} Egg (${item.size}) is currently not available for ordering. Please check the product catalog.`,
         };
       }
 
       // Determine the expected quoted price for this packaging type
-      let expectedPrice: number;
-      switch (item.packaging) {
-        case "TRAY_30":
-          expectedPrice =
-            catalog.price_tray_30 ??
-            catalog.price_per_piece * PACKAGING_MULTIPLIERS["TRAY_30"];
-          break;
-        case "CARTON_12":
-          expectedPrice =
-            catalog.price_carton_12 ??
-            catalog.price_per_piece * PACKAGING_MULTIPLIERS["CARTON_12"];
-          break;
-        case "BOX_360":
-          expectedPrice =
-            catalog.price_box_360 ??
-            catalog.price_per_piece * PACKAGING_MULTIPLIERS["BOX_360"];
-          break;
-        case "PIECE":
-        default:
-          expectedPrice = catalog.price_per_piece;
-          break;
-      }
+      const expectedPrice = calculatePackagingPrice(
+        item.packaging,
+        catalog.price_per_piece,
+        catalog
+      );
 
       // Reject if quoted price deviates by more than ₱0.01 (prevents price tampering)
       if (Math.abs(item.quoted_unit_price - expectedPrice) > 0.01) {
         return {
           success: false,
-          error: `Price mismatch for ${item.size} ${item.packaging}. Please refresh the page and resubmit your order.`,
+          error: `Price mismatch for ${item.size} ${item.packaging} (${itemEggType === "BROWN" ? "Brown Egg" : "White Egg"}). Please refresh the page and resubmit your order.`,
         };
       }
     }
@@ -1294,7 +1340,8 @@ export async function fulfillCustomerOrder(
           size,
           packaging,
           package_quantity,
-          quoted_unit_price
+          quoted_unit_price,
+          egg_type
         )
       `)
       .eq("id", orderId)
@@ -1331,6 +1378,7 @@ export async function fulfillCustomerOrder(
       packaging: PackagingType;
       package_quantity: number;
       quoted_unit_price: number;
+      egg_type?: EggType;
     }
 
     const items = (order.customer_order_items ?? []) as OrderItemRow[];
@@ -1342,6 +1390,8 @@ export async function fulfillCustomerOrder(
     const p_items = items.map((item) => ({
       egg_size: item.size,
       packaging_type: item.packaging,
+      size: item.size,
+      packaging: item.packaging,
       package_quantity: item.package_quantity,
       unit_price: Number(item.quoted_unit_price),
     }));
@@ -1428,6 +1478,7 @@ export async function fulfillCustomerOrder(
 
 export interface UpdateEggPriceCatalogItemInput {
   size: EggSize;
+  egg_type?: EggType;
   price_per_piece: number;
   price_tray_30?: number | null;
   price_carton_12?: number | null;
@@ -1455,6 +1506,7 @@ export async function updateEggPriceCatalogItem(
 
   try {
     const supabase = await createClient();
+    const eggType = input.egg_type ?? "WHITE";
 
     const { error } = await supabase
       .from("egg_price_catalog")
@@ -1467,7 +1519,8 @@ export async function updateEggPriceCatalogItem(
         updated_by: caller.id,
         updated_at: new Date().toISOString(),
       })
-      .eq("size", input.size);
+      .eq("size", input.size)
+      .eq("egg_type", eggType);
 
     if (error) {
       return { success: false, error: error.message };
